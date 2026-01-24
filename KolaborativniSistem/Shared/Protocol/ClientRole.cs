@@ -4,12 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace server
+namespace Shared.Protocol
 {
-    internal class Program
+    public enum ClientRole
     {
-        static void Main(string[] args)
-        {
-        }
+        Menadzer = 0,
+        Zaposleni = 1
     }
 }
