@@ -5,7 +5,7 @@ TCP:50005
 GET_IN_PROGRESS
 
 # TCP
-<ZadatakProjekta>        # binarno, serijalizovan objekat
+<ZadatakProjekta>
 nazivZadatka:noviPrioritet
 GET_MY_TASKS
 TAKE:nazivZadatka
