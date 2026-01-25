@@ -12,7 +12,8 @@ namespace EmployeeClient.ViewModels;
 {
     private string _serverIp = "127.0.0.1";
     private int _udpPort = 50032;
-    private string _username = "";   //jel ovo ok???
+    private string _username =
+    EmployeeClient.Properties.Settings.Default.LastEmployeeUsername ?? "";
 
     public string ServerIp
     {

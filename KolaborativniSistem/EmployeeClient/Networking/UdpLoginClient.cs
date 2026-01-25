@@ -1,33 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace EmployeeClient.Networking
+namespace EmployeeClient.Networking;
+
+public static class UdpLoginClient
 {
-    public class UdpLoginClient
+    public static string Login(string serverIp, int serverPort, string username)
     {
-        private readonly string _serverIp = "127.0.0.1";
-        private readonly int _serverPort = 5000;
+        using var client = new UdpClient();
+        string message = $"ZAPOSLENI:{username}";
 
-        public bool Login(string username, string password)
-        {
-            using (UdpClient client = new UdpClient())
-            {
-                string message = $"ZAPOSLENI|{username}|{password}";   //treba li uopste password?
-                byte[] data = Encoding.UTF8.GetBytes(message);
+        byte[] data = Encoding.UTF8.GetBytes(message);
 
-                client.Send(data, data.Length, _serverIp, _serverPort);
+        client.Send(data, data.Length, serverIp, serverPort);
 
-                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                byte[] responseData = client.Receive(ref remoteEndPoint);
-                string response = Encoding.UTF8.GetString(responseData);
+        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+        byte[] responseData = client.Receive(ref remoteEndPoint);
 
-                return response == "OK";
-            }
-        }
+        return Encoding.UTF8.GetString(responseData).Trim();
     }
 }
