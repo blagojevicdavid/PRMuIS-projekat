@@ -1,6 +1,6 @@
 <Solution>
   <Project Path="CollaborativeServer/CollaborativeServer.csproj" />
   <Project Path="EmployeeClient/EmployeeClient.csproj" />
-  <Project Path="MenagerClient/MenagerClient.csproj" />
+  <Project Path="MenagerClient/ManagerClient.csproj" />
   <Project Path="Shared/Shared.csproj" />
 </Solution>

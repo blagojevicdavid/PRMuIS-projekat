@@ -1,4 +1,5 @@
 ﻿using CollaborativeServer.Core;
+using CollaborativeServer.Networking;
 
 static ServerConfig ParseArgs(string[] args)
 {
@@ -35,3 +36,14 @@ Console.WriteLine($"UDP Port: {cfg.UdpPort}");
 Console.WriteLine($"TCP Port: {cfg.TcpPort}");
 Console.WriteLine($"Select timeout: {cfg.SelectTimeoutMs} ms");
 Console.WriteLine("Status: skeleton ready (networking not implemented yet).");
+
+
+var udpServer = new UdpServer();
+var tcpServer = new TcpServer();
+
+
+Task.Run(() =>  udpServer.Start(cfg.BindIP, cfg.UdpPort, cfg.TcpPort));
+Task.Run(() => tcpServer.Start(cfg.BindIP, cfg.TcpPort));
+
+Console.WriteLine("Press any key to stop.");
+Console.ReadLine();
