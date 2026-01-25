@@ -12,9 +12,4 @@
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Networking\" />
-    <Folder Include="ViewModels\" />
-  </ItemGroup>
-
 </Project>
