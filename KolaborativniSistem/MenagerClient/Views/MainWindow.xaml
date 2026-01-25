@@ -8,16 +8,221 @@
         WindowStartupLocation="CenterScreen"
         Background="#FFEEF2F6">
 
-    <Grid>
-        <Grid x:Name="DashboardPanel"
-              Visibility="Collapsed">
-            <!-- Dashboard content goes here -->
+    <Window.Resources>
+        <!-- Colors -->
+        <SolidColorBrush x:Key="BgBrush" Color="#FFEEF2F6"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#CCFFFFFF"/>
+        <SolidColorBrush x:Key="InputBrush" Color="#FFF8F9FB"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF4F8CFF"/>
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#FF666666"/>
+
+        <!-- Glass card -->
+        <Style x:Key="GlassCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.22"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Input -->
+        <Style x:Key="GlassTextBox" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style x:Key="InputContainer" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource InputBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <!-- Flat button -->
+        <Style x:Key="FlatButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- ROOT GRID (OBAVEZNO) -->
+    <Grid Background="{StaticResource BgBrush}">
+
+        <!-- DASHBOARD -->
+        <Grid x:Name="DashboardPanel" Visibility="Collapsed" Margin="18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Zaglavlje -->
+            <Border Style="{StaticResource GlassCard}" Grid.Row="0" Padding="16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Menadžerska kontrolna tabla" FontSize="20" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="Korisnik: " Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
+                            <TextBlock Text="{Binding Username}" FontSize="12" FontWeight="SemiBold"/>
+                            <TextBlock Text="   •   " Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
+                            <TextBlock Text="{Binding ConnectionStatus}" Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="#1A4F8CFF" CornerRadius="14" Height="36" Padding="14,0" Margin="0,0,10,0">
+                            <Button Style="{StaticResource FlatButton}" Content="Osveži" Foreground="#FF4F8CFF"/>
+                        </Border>
+
+                        <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="36" Padding="14,0">
+                            <Button Style="{StaticResource FlatButton}" Content="Odjava" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Glavni deo -->
+            <Grid Grid.Row="1" Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="420"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Levo: Dodavanje zadatka -->
+                <Border Grid.Column="0" Style="{StaticResource GlassCard}">
+                    <StackPanel>
+                        <TextBlock Text="Dodavanje novog zadatka" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Naziv zadatka" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="4,0,0,3"/>
+                        <Border Style="{StaticResource InputContainer}">
+                            <TextBox Style="{StaticResource GlassTextBox}" Text="{Binding NewTaskName}"/>
+                        </Border>
+
+                        <TextBlock Text="Korisničko ime zaposlenog" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="4,10,0,3"/>
+                        <Border Style="{StaticResource InputContainer}">
+                            <TextBox Style="{StaticResource GlassTextBox}" Text="{Binding NewTaskEmployee}"/>
+                        </Border>
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Rok izvršenja" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="4,0,0,3"/>
+                                <Border Style="{StaticResource InputContainer}" Padding="6,2">
+                                    <DatePicker SelectedDate="{Binding NewTaskDueDate}" Background="Transparent" BorderThickness="0"/>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Prioritet" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="4,0,0,3"/>
+                                <Border Style="{StaticResource InputContainer}">
+                                    <TextBox Style="{StaticResource GlassTextBox}" Text="{Binding NewTaskPriority}"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="40" Margin="0,16,0,0">
+                            <Button Style="{StaticResource FlatButton}" Content="Pošalji zadatak" Foreground="White"/>
+                        </Border>
+
+                        <TextBlock Text="{Binding FormHint}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="4,10,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Desno: Aktivni zadaci -->
+                <Border Grid.Column="2" Style="{StaticResource GlassCard}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Aktivni zadaci" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Zadaci koji su u toku" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Background="#1A4F8CFF" CornerRadius="14" Height="34" Padding="12,0" VerticalAlignment="Center">
+                                <Button Style="{StaticResource FlatButton}" Content="UDP zahtev" Foreground="#FF4F8CFF"/>
+                            </Border>
+                        </Grid>
+
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding ActiveTasks}"
+                                  AutoGenerateColumns="False"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  GridLinesVisibility="None"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  RowHeight="36"
+                                  ColumnHeaderHeight="34">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Naziv" Binding="{Binding Naziv}" Width="2*"/>
+                                <DataGridTextColumn Header="Zaposleni" Binding="{Binding Zaposleni}" Width="*"/>
+                                <DataGridTextColumn Header="Rok" Binding="{Binding Rok}" Width="*"/>
+                                <DataGridTextColumn Header="Prioritet" Binding="{Binding Prioritet}" Width="Auto"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Povećanje prioriteta -->
+                        <Grid Grid.Row="2" Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="160"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource InputContainer}">
+                                <TextBox Style="{StaticResource GlassTextBox}"
+                                         Text="{Binding NewPriorityValue}"
+                                         ToolTip="Novi prioritet za izabrani zadatak"/>
+                            </Border>
+
+                            <Border Grid.Column="2" Background="{StaticResource AccentBrush}" CornerRadius="14" Height="38">
+                                <Button Style="{StaticResource FlatButton}" Content="Povećaj prioritet" Foreground="White"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
-        
-        
-        <!-- Login Card -->
-        <Border 
-                x:Name="LoginCard"
+
+        <!-- LOGIN CARD (na istoj root grid) -->
+        <Border x:Name="LoginCard"
                 Width="340"
                 Padding="24"
                 Background="#CCFFFFFF"
@@ -26,14 +231,11 @@
                 HorizontalAlignment="Center">
 
             <Border.Effect>
-                <DropShadowEffect BlurRadius="22"
-                                  ShadowDepth="0"
-                                  Opacity="0.25"/>
+                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.25"/>
             </Border.Effect>
 
             <StackPanel VerticalAlignment="Center">
 
-                <!-- Title -->
                 <TextBlock Text="Manager Login"
                            FontSize="20"
                            FontWeight="SemiBold"
@@ -42,87 +244,51 @@
 
                 <!-- Server IP -->
                 <StackPanel Margin="0,0,0,10">
-                    <TextBlock Text="Server IP"
-                               FontSize="12"
-                               Foreground="#666"
-                               Margin="4,0,0,3"/>
-                    <Border Background="#F8F9FB"
-                            CornerRadius="12">
-                        <TextBox Height="32"
-                                 Padding="10,5"
+                    <TextBlock Text="Server IP" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
+                    <Border Background="#F8F9FB" CornerRadius="12">
+                        <TextBox Height="32" Padding="10,5"
                                  Text="{Binding ServerIp}"
-                                 Background="Transparent"
-                                 BorderThickness="0"/>
+                                 Background="Transparent" BorderThickness="0"/>
                     </Border>
                 </StackPanel>
 
                 <!-- UDP Port -->
                 <StackPanel Margin="0,0,0,10">
-                    <TextBlock Text="UDP Port"
-                               FontSize="12"
-                               Foreground="#666"
-                               Margin="4,0,0,3"/>
-                    <Border Background="#F8F9FB"
-                            CornerRadius="12">
-                        <TextBox Height="32"
-                                 Padding="10,5"
+                    <TextBlock Text="UDP Port" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
+                    <Border Background="#F8F9FB" CornerRadius="12">
+                        <TextBox Height="32" Padding="10,5"
                                  Text="{Binding UdpPort}"
-                                 Background="Transparent"
-                                 BorderThickness="0"/>
+                                 Background="Transparent" BorderThickness="0"/>
                     </Border>
                 </StackPanel>
 
                 <!-- Username -->
                 <StackPanel Margin="0,0,0,18">
-                    <TextBlock Text="Username"
-                               FontSize="12"
-                               Foreground="#666"
-                               Margin="4,0,0,3"/>
-                    <Border Background="#F8F9FB"
-                            CornerRadius="12">
-                        <TextBox Height="32"
-                                 Padding="10,5"
+                    <TextBlock Text="Username" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
+                    <Border Background="#F8F9FB" CornerRadius="12">
+                        <TextBox Height="32" Padding="10,5"
                                  Text="{Binding Username}"
-                                 Background="Transparent"
-                                 BorderThickness="0"/>
+                                 Background="Transparent" BorderThickness="0"/>
                     </Border>
                 </StackPanel>
 
-                <!-- Button -->
                 <Border Background="#4F8CFF"
                         CornerRadius="14"
                         Width="150"
                         Height="38"
                         HorizontalAlignment="Center">
                     <Button Content="Connect"
-        Click="Connect_Click"
-        Background="Transparent"
-        BorderBrush="Transparent"
-        Foreground="White"
-        BorderThickness="0"
-        FontWeight="SemiBold">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderBrush" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="OverridesDefaultStyle" Value="True"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                           
-                                            <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"/>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                            Click="Connect_Click"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Foreground="White"
+                            BorderThickness="0"
+                            FontWeight="SemiBold"
+                            Style="{StaticResource FlatButton}"/>
                 </Border>
 
             </StackPanel>
         </Border>
+
     </Grid>
 </Window>
