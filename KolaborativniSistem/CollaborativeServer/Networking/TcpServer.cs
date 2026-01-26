@@ -1,16 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
+using CollaborativeServer.Core;
+using Shared.Models;
+using Shared.Protocol;
+
 
 namespace CollaborativeServer.Networking
 {
     public sealed class TcpServer
     {
-        private readonly Dictionary<Socket, (string Role, string Username)> _clients = new();
+        private readonly TaskStore _store;
+
+        
+        private readonly Dictionary<Socket, (bool Identified, ClientRole Role, string Username)> _clients = new();
+
+        public TcpServer(TaskStore store)
+        {
+            _store = store;
+        }
 
         public void Start(string bindIp, int tcpPort)
         {
@@ -25,7 +35,6 @@ namespace CollaborativeServer.Networking
             while (true)
             {
                 var readList = new List<Socket>(clients) { listener };
-
                 Socket.Select(readList, null, null, 1_000_000);
 
                 foreach (var socket in readList)
@@ -34,7 +43,7 @@ namespace CollaborativeServer.Networking
                     {
                         var client = listener.Accept();
                         clients.Add(client);
-                        _clients[client] = ("", ""); // Placeholder
+                        _clients[client] = (false, ClientRole.Menadzer, ""); 
                         Console.WriteLine("[TCP] Client connected");
                     }
                     else
@@ -43,7 +52,7 @@ namespace CollaborativeServer.Networking
                         {
                             _clients.Remove(socket);
                             clients.Remove(socket);
-                            socket.Close();
+                            try { socket.Close(); } catch { }
                             Console.WriteLine("[TCP] Client disconnected");
                         }
                     }
@@ -53,48 +62,33 @@ namespace CollaborativeServer.Networking
 
         private bool HandleClient(Socket client)
         {
-            var buffer = new byte[1024];
+            var buffer = new byte[2048];
 
             try
             {
                 int received = client.Receive(buffer);
-                if (received == 0)
-                    return false;
+                if (received == 0) return false;
 
-                string message = Encoding.UTF8.GetString(buffer, 0, received);
+                string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
 
-                message = message.Trim();
+                // handlovanje vise linija, uzima se samo prva
+                int nl = message.IndexOf('\n');
+                if (nl >= 0) message = message.Substring(0, nl).Trim();
 
-                if (_clients.TryGetValue(client, out var info) && string.IsNullOrEmpty(info.Role))
-                {
-                    if (message.StartsWith("MENADZER:"))
-                    {
-                        var username = message.Substring("MENADZER:".Length).Trim();
-                        _clients[client] = ("MENADZER", username);
-                        Console.WriteLine($"[TCP] Identified manager: {username}");
-                        client.Send(Encoding.UTF8.GetBytes("ID_OK\n"));
-                        return true;
-                    }
+                // identifikacija
+                if (_clients.TryGetValue(client, out var info) && !info.Identified)
+                    return HandleIdentify(client, message);
 
 
-                    if (message.StartsWith("ZAPOSLENI:"))
-                    {
-                        var username = message.Substring("ZAPOSLENI:".Length).Trim();
-                        _clients[client] = ("ZAPOSLENI", username);
-                        Console.WriteLine($"[TCP] Identified employee: {username}");
-                        client.Send(Encoding.UTF8.GetBytes("ID_OK\n"));
-                        return true;
-                    }
+                var (_, role, username) = _clients[client];
 
-                    client.Send(Encoding.UTF8.GetBytes("ID_REQUIRED\n"));
-                    return true;
-                }
+                if (role == ClientRole.Menadzer)
+                    return HandleManagerMessage(client, username, message);
 
-                Console.WriteLine($"[TCP] Received: {message}");
+                if (role == ClientRole.Zaposleni)
+                    return HandleEmployeeMessage(client, username, message);
 
-                // echo test
-                client.Send(Encoding.UTF8.GetBytes($"OK  Recieved: {message}"));
-
+                SendLine(client, "ERR");
                 return true;
             }
             catch
@@ -103,5 +97,139 @@ namespace CollaborativeServer.Networking
             }
         }
 
+        private bool HandleIdentify(Socket client, string message)
+        {
+            if (message.StartsWith(ProtocolConstants.UdpLoginManagerPrefix)) // "MENADZER:"
+            {
+                var username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
+                _clients[client] = (true, ClientRole.Menadzer, username);
+
+                _store.EnsureManager(username);
+
+                Console.WriteLine($"[TCP] Identified manager: {username}");
+                SendLine(client, "ID_OK");
+                return true;
+            }
+
+            if (message.StartsWith(ProtocolConstants.UdpLoginEmployeePrefix)) // "ZAPOSLENI:"
+            {
+                var username = message.Substring(ProtocolConstants.UdpLoginEmployeePrefix.Length).Trim();
+                _clients[client] = (true, ClientRole.Zaposleni, username);
+
+                Console.WriteLine($"[TCP] Identified employee: {username}");
+                SendLine(client, "ID_OK");
+                return true;
+            }
+
+            SendLine(client, "ID_REQUIRED");
+            return true;
+        }
+
+        // MENADZER:
+        private bool HandleManagerMessage(Socket client, string managerUsername, string message)
+        {
+            Console.WriteLine($"[TCP][MENADZER:{managerUsername}] {message}");
+
+            if (message.StartsWith(ProtocolConstants.TcpSendPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                // SEND:Naziv|Zaposleni|YYYY-MM-DD|Prioritet - format poruke
+                var payload = message.Substring(ProtocolConstants.TcpSendPrefix.Length);
+                var parts = payload.Split('|');
+
+                if (parts.Length != 4)
+                {
+                    SendLine(client, "ERR_SEND_FORMAT");
+                    return true;
+                }
+
+                string naziv = parts[0].Trim();
+                string zaposleni = parts[1].Trim();
+
+                if (!DateTime.TryParse(parts[2].Trim(), out var rok))
+                {
+                    SendLine(client, "ERR_BAD_DATE");
+                    return true;
+                }
+
+                if (!int.TryParse(parts[3].Trim(), out var prioritet))
+                {
+                    SendLine(client, "ERR_BAD_PRIORITY");
+                    return true;
+                }
+
+                var task = new ZadatakProjekta
+                {
+                    Naziv = naziv,
+                    Zaposleni = zaposleni,
+                    Rok = rok,
+                    Prioritet = prioritet,
+                    Status = StatusZadatka.NaCekanju
+                };
+
+                _store.AddTask(managerUsername, task);
+
+                _store.DebugPrint();//debug only
+
+                SendLine(client, "OK");
+                return true;
+            }
+
+
+            //"[nazivZadatka]:[noviPrioritet]"
+            int idx = message.LastIndexOf(':');
+            if (idx > 0)
+            {
+                string taskName = message.Substring(0, idx).Trim();
+                string prStr = message.Substring(idx + 1).Trim();
+
+                if (int.TryParse(prStr, out int newPr))
+                {
+                    bool ok = _store.TryIncreasePriority(managerUsername, taskName, newPr);
+                    SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");
+                    return true;
+                }
+            }
+
+            SendLine(client, "ERR_UNKNOWN");
+            return true;
+        }
+
+        // ZAPOSLENI:
+        private bool HandleEmployeeMessage(Socket client, string employeeUsername, string message)
+        {
+            Console.WriteLine($"[TCP][ZAPOSLENI:{employeeUsername}] {message}");
+
+            if (message.StartsWith(ProtocolConstants.TcpTakePrefix, StringComparison.OrdinalIgnoreCase)) // "TAKE:"
+            {
+                string taskName = message.Substring(ProtocolConstants.TcpTakePrefix.Length).Trim();
+                bool ok = _store.TrySetStatus(taskName, StatusZadatka.UToku);
+                SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");
+                return true;
+            }
+
+            if (message.StartsWith(ProtocolConstants.TcpDonePrefix, StringComparison.OrdinalIgnoreCase)) // "DONE:"
+            {
+                string rest = message.Substring(ProtocolConstants.TcpDonePrefix.Length);
+                string taskName = rest;
+
+                var parts = rest.Split('|', 2);
+                taskName = parts[0].Trim();
+
+
+                bool ok = _store.TrySetStatus(taskName, StatusZadatka.Zavrsen);
+                SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");
+
+                _store.DebugPrint();//debug only
+                return true;
+            }
+
+            SendLine(client, "ERR_UNKNOWN");
+            return true;
+        }
+
+        private static void SendLine(Socket client, string text)
+        {
+            client.Send(Encoding.UTF8.GetBytes(text + "\n"));
+        }
     }
 }

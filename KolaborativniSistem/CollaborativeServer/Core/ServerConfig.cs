@@ -8,6 +8,8 @@ namespace CollaborativeServer.Core
 {
     public sealed class ServerConfig
     {
+        public bool debug = true;
+        
         public string BindIP { get; init; } = "0.0.0.0";
         public int UdpPort { get; init; } = 50032;
         public int TcpPort { get; init; } = 50005;

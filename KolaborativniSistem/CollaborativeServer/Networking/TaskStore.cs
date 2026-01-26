@@ -119,6 +119,38 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        
+        public void DebugPrint()
+        {
+            lock (_lock)
+            {
+                Console.WriteLine("===== TASK STORE DICT STATE =====");
+
+                if (_taskByManager.Count == 0)
+                {
+                    Console.WriteLine("(prazno)");
+                    return;
+                }
+
+                foreach (var kvp in _taskByManager)
+                {
+                    Console.WriteLine($"MENADZER: {kvp.Key}");
+
+                    if (kvp.Value.Count == 0)
+                    {
+                        Console.WriteLine("  (nema zadataka)");
+                        continue;
+                    }
+
+                    foreach (var t in kvp.Value)
+                    {
+                        Console.WriteLine(
+                            $"  - {t.Naziv} | Zaposleni: {t.Zaposleni} | Status: {t.Status} | Prioritet: {t.Prioritet} | Rok: {t.Rok:yyyy-MM-dd}"
+                        );
+                    }
+                }
+
+                Console.WriteLine("============================");
+            }
+        }
     }
 }

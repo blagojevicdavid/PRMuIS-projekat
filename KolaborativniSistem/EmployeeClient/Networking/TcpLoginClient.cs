@@ -29,7 +29,7 @@ namespace EmployeeClient.Networking
 
             _sock.Connect(new IPEndPoint(ip, tcpPort));
 
-            // ✅ identifikacija za zaposlenog
+            //identifikacija za zaposlenog
             var msg = ProtocolConstants.UdpLoginEmployeePrefix + username + "\n";
             var data = Encoding.UTF8.GetBytes(msg);
             _sock.Send(data);
@@ -54,7 +54,7 @@ namespace EmployeeClient.Networking
             _sock.Send(data);
         }
 
-        // ✅ ovo ti treba za dashboard dugmad (refresh/start/finish)
+        
         public string SendAndReceive(string text, int bufferSize = 8192)
         {
             if (_sock == null) throw new Exception("TCP nije povezan.");

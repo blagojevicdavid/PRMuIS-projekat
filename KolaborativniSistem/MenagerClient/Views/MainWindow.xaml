@@ -43,7 +43,7 @@
             <Setter Property="Padding" Value="0"/>
         </Style>
 
-        <!-- Flat button -->
+        <!-- button -->
         <Style x:Key="FlatButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -147,7 +147,7 @@
                         </Grid>
 
                         <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="40" Margin="0,16,0,0">
-                            <Button Style="{StaticResource FlatButton}" Content="Pošalji zadatak" Foreground="White"/>
+                            <Button Style="{StaticResource FlatButton}" Content="Pošalji zadatak" Foreground="White" Click="SendTask_Click"/>
                         </Border>
 
                         <TextBlock Text="{Binding FormHint}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="4,10,0,0"/>

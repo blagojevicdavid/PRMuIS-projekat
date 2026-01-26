@@ -39,7 +39,7 @@ Console.WriteLine($"Select timeout: {cfg.SelectTimeoutMs} ms");
 var store = new TaskStore();
 
 var udpServer = new UdpServer(store);
-var tcpServer = new TcpServer();
+var tcpServer = new TcpServer(store);
 
 
 Task.Run(() =>  udpServer.Start(cfg.BindIP, cfg.UdpPort, cfg.TcpPort));

@@ -1,0 +1,2 @@
+1. cuvanje login podatak
+2. format tcp poruka/serialzacija

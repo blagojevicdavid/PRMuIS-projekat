@@ -45,6 +45,38 @@ public sealed class LoginViewModel : INotifyPropertyChanged
         }
     }
 
+    private string _newTaskName = "";
+    public string NewTaskName
+    {
+        get => _newTaskName;
+        set
+        {
+            _newTaskName = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string _newTaskEmployee = "";
+    public string NewTaskEmployee
+    {
+        get => _newTaskEmployee;
+        set { _newTaskEmployee = value; OnPropertyChanged(); }
+    }
+
+    private DateTime _newTaskDueDate = DateTime.Today.AddDays(1);
+    public DateTime NewTaskDueDate
+    {
+        get => _newTaskDueDate;
+        set { _newTaskDueDate = value; OnPropertyChanged(); }
+    }
+
+    private int _newTaskPriority = 1;
+    public int NewTaskPriority
+    {
+        get => _newTaskPriority;
+        set { _newTaskPriority = value; OnPropertyChanged(); }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

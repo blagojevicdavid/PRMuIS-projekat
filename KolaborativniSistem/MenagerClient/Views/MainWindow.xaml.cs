@@ -13,12 +13,14 @@ using System;
 
 using ManagerClient.ViewModels;
 using ManagerClient.Networking;
+using Shared.Protocol;
 
 namespace ManagerClient.Views;
 
 public partial class MainWindow : Window
 {
     private readonly TcpLoginClient _tcpLoginClient = new TcpLoginClient();
+    private int _tcpPort;
 
     public MainWindow()
     {
@@ -67,6 +69,8 @@ public partial class MainWindow : Window
                 return;
             }
 
+            _tcpPort = tcpPort;
+
             // tcp konekcija i dentifikacija
             await _tcpLoginClient.ConnectAndIdentifyAsync(vm.ServerIp, tcpPort, vm.Username);
 
@@ -83,6 +87,36 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Login error");
+        }
+    }
+
+    private void SendTask_Click(object sender, RoutedEventArgs e)
+    {
+        if(DataContext is not LoginViewModel vm)
+            return;
+
+        if (!_tcpLoginClient.IsConnected)
+        {
+            MessageBox.Show("Nema konekcije sa serverom!");
+            return;
+        }
+
+        if(string.IsNullOrWhiteSpace(vm.NewTaskName) || string.IsNullOrWhiteSpace(vm.NewTaskEmployee))
+        {
+            MessageBox.Show("Kosisnicko ime zaposlenog i/ili naziv zadatka su prazni");
+            return;
+        }
+
+        string msg = ProtocolConstants.TcpSendPrefix + $"{vm.NewTaskName}|{vm.NewTaskEmployee}|{vm.NewTaskDueDate:yyyy-MM-dd}|{vm.NewTaskPriority}";
+        try
+        {
+            _tcpLoginClient.SendLine(msg);
+            MessageBox.Show("Zadatak uspesno poslat!");
+        }
+
+        catch(Exception ex)
+        {
+            MessageBox.Show($"Greska prilikom slanja zadatka: {ex.Message}");
         }
     }
 

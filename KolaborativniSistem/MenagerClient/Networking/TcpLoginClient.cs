@@ -49,13 +49,19 @@ namespace ManagerClient.Networking
                 throw new Exception($"TCP identifikacija neuspešna. Odgovor: {reply}");
             }
         }
-
-        
         public void Send(string text)
+        {
+            if (_sock == null) throw new Exception("Tcp nije povezan.");
+            
+            var data = Encoding.UTF8.GetBytes(text);
+            _sock.Send(data);
+        }
+        
+        public void SendLine(string line)
         {
             if (_sock == null) throw new Exception("TCP nije povezan.");
 
-            var data = Encoding.UTF8.GetBytes(text);
+            var data = Encoding.UTF8.GetBytes(line + "\n");
             _sock.Send(data);
         }
 

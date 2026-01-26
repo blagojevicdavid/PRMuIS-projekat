@@ -13,7 +13,11 @@ namespace Shared.Protocol
 
         public const string UdpTcpInfoPrefix = "TCP:";
 
+        public const string TcpSendPrefix = "SEND:";
         public const string TcpTakePrefix = "TAKE:";
         public const string TcpDonePrefix = "DONE:";
+
+
+       // public const string
     }
 }
