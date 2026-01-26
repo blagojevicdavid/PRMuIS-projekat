@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Shared.Protocol;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -31,7 +32,7 @@ namespace ManagerClient.Networking
             _sock.Connect(new IPEndPoint(ip, tcpPort));
 
             // identifikacija
-            var msg = $"MENADZER:{username}\n";
+            var msg = ProtocolConstants.UdpLoginManagerPrefix + username + "\n"; //UdpLoginEmployeePrefix
             var data = Encoding.UTF8.GetBytes(msg);
             _sock.Send(data);
 

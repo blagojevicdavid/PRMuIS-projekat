@@ -35,10 +35,10 @@ Console.WriteLine($"Bind IP: {cfg.BindIP}");
 Console.WriteLine($"UDP Port: {cfg.UdpPort}");
 Console.WriteLine($"TCP Port: {cfg.TcpPort}");
 Console.WriteLine($"Select timeout: {cfg.SelectTimeoutMs} ms");
-Console.WriteLine("Status: skeleton ready (networking not implemented yet).");
 
+var store = new TaskStore();
 
-var udpServer = new UdpServer();
+var udpServer = new UdpServer(store);
 var tcpServer = new TcpServer();
 
 

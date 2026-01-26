@@ -1,16 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
+
+using Shared.Protocol;
 
 namespace CollaborativeServer.Networking
 {
     public sealed class UdpServer
     {
-        
+        private readonly TaskStore _store;
+
+        public UdpServer(TaskStore store)
+        {
+            _store = store;
+        }
+
         public void Start(string bindIp, int udpPort, int tcpPort)
         {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -24,11 +29,10 @@ namespace CollaborativeServer.Networking
             while (true)
             {
                 int received = socket.ReceiveFrom(buffer, ref remote);
-                string message = Encoding.UTF8.GetString(buffer, 0, received);
+                string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
 
                 Console.WriteLine($"[UDP] Received: {message}");
 
-                // Obrada poruke
                 string response = HandleMessage(message, tcpPort);
 
                 byte[] responseBytes = Encoding.UTF8.GetBytes(response);
@@ -38,23 +42,27 @@ namespace CollaborativeServer.Networking
 
         private string HandleMessage(string message, int tcpPort)
         {
-            if (message.StartsWith("MENADZER:"))
+            if (message.StartsWith(ProtocolConstants.UdpLoginManagerPrefix))
             {
-                string username = message.Substring("MENADZER:".Length);
+                string username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
                 Console.WriteLine($"[UDP] Manager login: {username}");
-                return $"TCP:{tcpPort}";
+
+                
+                _store.EnsureManager(username); //dodavanje u dictionary
+
+                return $"{ProtocolConstants.UdpTcpInfoPrefix}{tcpPort}";
             }
 
-            if (message.StartsWith("ZAPOSLENI:"))
+            if (message.StartsWith(ProtocolConstants.UdpLoginEmployeePrefix))
             {
-                string username = message.Substring("ZAPOSLENI:".Length);
+                string username = message.Substring(ProtocolConstants.UdpLoginEmployeePrefix.Length).Trim();
                 Console.WriteLine($"[UDP] Employee login: {username}");
-                return $"TCP:{tcpPort}";
+
+                // Za zaposlenog trenutno ne pravimo entry u Dictionary (spec traži samo za menadžera)
+                return $"{ProtocolConstants.UdpTcpInfoPrefix}{tcpPort}";
             }
 
             return "ERROR";
         }
-
-
     }
 }

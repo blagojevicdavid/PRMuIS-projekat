@@ -18,7 +18,6 @@ namespace Shared.Models
 
         public int Prioritet { get; set; } = 5;
 
-        public string? Komentar { get; set; } = null;
 
     }
 }

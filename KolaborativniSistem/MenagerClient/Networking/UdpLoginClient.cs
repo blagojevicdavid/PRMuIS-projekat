@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using System.Net;
 using System.Net.Sockets;
-
+using Shared.Protocol;
 
 namespace ManagerClient.Networking;
 
@@ -18,7 +18,7 @@ public sealed class UdpLoginClient
 
         var serverEndpoint = new IPEndPoint(IPAddress.Parse(serverIp), udpPort);
 
-        string message = $"MENADZER:{username}";
+        string message = ProtocolConstants.UdpLoginManagerPrefix + username;
         byte[] data = Encoding.UTF8.GetBytes(message);
 
         client.Send(data, data.Length, serverEndpoint);
