@@ -1,23 +1,25 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Shared.Protocol;
 
 namespace EmployeeClient.Networking;
 
-public static class UdpLoginClient
+public sealed class UdpLoginClient
 {
-    public static string Login(string serverIp, int serverPort, string username)
+    public static string Login(string serverIp, int udpPort, string username)
     {
         using var client = new UdpClient();
-        string message = $"ZAPOSLENI:{username}";
+        var serverEndpoint = new IPEndPoint(IPAddress.Parse(serverIp), udpPort);
 
+        string message = ProtocolConstants.UdpLoginEmployeePrefix + username;
         byte[] data = Encoding.UTF8.GetBytes(message);
 
-        client.Send(data, data.Length, serverIp, serverPort);
+        client.Send(data, data.Length, serverEndpoint);
 
-        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-        byte[] responseData = client.Receive(ref remoteEndPoint);
+        var remote = new IPEndPoint(IPAddress.Any, 0);
+        byte[] responseBytes = client.Receive(ref remote);
 
-        return Encoding.UTF8.GetString(responseData).Trim();
+        return Encoding.UTF8.GetString(responseBytes).Trim();
     }
 }
