@@ -7,14 +7,12 @@ using CollaborativeServer.Core;
 using Shared.Models;
 using Shared.Protocol;
 
-
 namespace CollaborativeServer.Networking
 {
     public sealed class TcpServer
     {
         private readonly TaskStore _store;
 
-        
         private readonly Dictionary<Socket, (bool Identified, ClientRole Role, string Username)> _clients = new();
 
         public TcpServer(TaskStore store)
@@ -43,7 +41,7 @@ namespace CollaborativeServer.Networking
                     {
                         var client = listener.Accept();
                         clients.Add(client);
-                        _clients[client] = (false, ClientRole.Menadzer, ""); 
+                        _clients[client] = (false, ClientRole.Menadzer, "");
                         Console.WriteLine("[TCP] Client connected");
                     }
                     else
@@ -78,7 +76,6 @@ namespace CollaborativeServer.Networking
                 // identifikacija
                 if (_clients.TryGetValue(client, out var info) && !info.Identified)
                     return HandleIdentify(client, message);
-
 
                 var (_, role, username) = _clients[client];
 
@@ -174,7 +171,6 @@ namespace CollaborativeServer.Networking
                 return true;
             }
 
-
             //"[nazivZadatka]:[noviPrioritet]"
             int idx = message.LastIndexOf(':');
             if (idx > 0)
@@ -199,6 +195,28 @@ namespace CollaborativeServer.Networking
         {
             Console.WriteLine($"[TCP][ZAPOSLENI:{employeeUsername}] {message}");
 
+            // === DODATO: LIST zadataka za zaposlenog ===
+            // Klijent salje: "LIST"
+            // Server vraca: "NO_TASKS" ili "Naziv|?|Rok|Prioritet|Status^Naziv2|?|Rok|Prioritet|Status"
+            if (message.Equals("LIST", StringComparison.OrdinalIgnoreCase))
+            {
+                var tasks = _store.GetTasksForEmployee(employeeUsername);
+
+                if (tasks.Count == 0)
+                {
+                    SendLine(client, "NO_TASKS");
+                    return true;
+                }
+
+                var payload = string.Join("^", tasks.ConvertAll(t =>
+                    $"{t.Naziv}|?|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{t.Status}"
+                ));
+
+                SendLine(client, payload);
+                return true;
+            }
+            // ===========================================
+
             if (message.StartsWith(ProtocolConstants.TcpTakePrefix, StringComparison.OrdinalIgnoreCase)) // "TAKE:"
             {
                 string taskName = message.Substring(ProtocolConstants.TcpTakePrefix.Length).Trim();
@@ -214,7 +232,6 @@ namespace CollaborativeServer.Networking
 
                 var parts = rest.Split('|', 2);
                 taskName = parts[0].Trim();
-
 
                 bool ok = _store.TrySetStatus(taskName, StatusZadatka.Zavrsen);
                 SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");

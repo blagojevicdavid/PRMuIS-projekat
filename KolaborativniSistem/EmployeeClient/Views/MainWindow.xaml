@@ -99,14 +99,6 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- <Border Style="{StaticResource PillButtonBorder}" Background="#1A4F8CFF" Margin="0,0,10,0"> -->
-                            <!-- TCP: zahtev liste dodeljenih zadataka -->
-                            <!-- <Button Style="{StaticResource FlatButton}" -->
-                             <!-- Content="Osveži listu" -->
-                            <!-- Foreground="#FF4F8CFF" -->
-                             <!-- Click="RefreshTasks_Click" -->
-                        <!-- </Border> -->
-
                         <Border Style="{StaticResource PillButtonBorder}" Background="{StaticResource AccentBrush}">
                             <Button Style="{StaticResource FlatButton}"
                                     Content="Odjava"
@@ -148,13 +140,7 @@
                                            Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <Border Grid.Column="1" Background="#1A4F8CFF" CornerRadius="14" Height="34" Padding="12,0" VerticalAlignment="Center">
-                                <!-- Ako želiš posebno dugme da tražiš listu i preko UDP-a (ako ste tako implementirali) -->
-                                <Button Style="{StaticResource FlatButton}"
-                                        Content="UDP zahtev"
-                                        Foreground="#FF4F8CFF"
-                                        Click="UdpFetch_Click"/>
-                            </Border>
+                            <!-- Dugme 'UDP zahtev' IZBAČENO -->
                         </Grid>
 
                         <DataGrid Grid.Row="1"
@@ -176,17 +162,14 @@
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
                             </DataGrid.Columns>
                         </DataGrid>
-
-                                                
                     </Grid>
                 </Border>
 
-                <!-- Right: Actions (Accept/Finish + optional comment) -->
+                <!-- Right: Actions (unchanged) -->
                 <Border Grid.Column="2" Style="{StaticResource GlassCard}">
                     <StackPanel>
                         <TextBlock Text="Rad nad izabranim zadatkom" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
-                        <!-- Selected task preview -->
                         <Border Background="#0A000000" CornerRadius="14" Padding="12" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="{Binding SelectedTask.Naziv, FallbackValue=Izaberi zadatak sa liste}"
@@ -202,7 +185,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Accept/start task: sends name -> status becomes "U toku" on server -->
                         <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="40" Margin="0,0,0,10">
                             <Button Style="{StaticResource FlatButton}"
                                     Content="Preuzmi / Startuj (U toku)"
@@ -210,14 +192,13 @@
                                     Click="StartTask_Click"/>
                         </Border>
 
-                         <Border Background="{StaticResource SuccessBrush}" CornerRadius="14" Height="40" Margin="0,12,0,0">
+                        <Border Background="{StaticResource SuccessBrush}" CornerRadius="14" Height="40" Margin="0,12,0,0">
                             <Button Style="{StaticResource FlatButton}"
                                     Content="Završi zadatak"
                                     Foreground="White"
                                     Click="FinishTask_Click"/>
                         </Border>
 
-                        <!-- Optional: status/error -->
                         <Border Background="#0A000000" CornerRadius="14" Padding="10" Margin="0,14,0,0">
                             <TextBlock Text="{Binding FormHint}"
                                        Foreground="{StaticResource MutedTextBrush}"
@@ -241,14 +222,12 @@
             </Border.Effect>
 
             <StackPanel VerticalAlignment="Center">
-
                 <TextBlock Text="Employee Login"
                            FontSize="20"
                            FontWeight="SemiBold"
                            Margin="0,0,0,18"
                            HorizontalAlignment="Center"/>
 
-                <!-- Server IP -->
                 <StackPanel Margin="0,0,0,10">
                     <TextBlock Text="Server IP" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
                     <Border Background="#F8F9FB" CornerRadius="12">
@@ -258,7 +237,6 @@
                     </Border>
                 </StackPanel>
 
-                <!-- UDP Port -->
                 <StackPanel Margin="0,0,0,10">
                     <TextBlock Text="UDP Port" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
                     <Border Background="#F8F9FB" CornerRadius="12">
@@ -268,7 +246,6 @@
                     </Border>
                 </StackPanel>
 
-                <!-- Username -->
                 <StackPanel Margin="0,0,0,18">
                     <TextBlock Text="Username" FontSize="12" Foreground="#666" Margin="4,0,0,3"/>
                     <Border Background="#F8F9FB" CornerRadius="12">

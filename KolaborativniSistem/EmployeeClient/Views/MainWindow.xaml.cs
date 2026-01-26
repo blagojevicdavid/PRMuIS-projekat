@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
 using System.Windows;
+using System.Windows.Threading;
 using EmployeeClient.Networking;
 using EmployeeClient.ViewModels;
+using Shared.Protocol;
 
 namespace EmployeeClient.Views;
 
@@ -10,10 +12,19 @@ public partial class MainWindow : Window
 {
     private readonly TcpLoginClient _tcpLoginClient = new TcpLoginClient();
 
+    private readonly DispatcherTimer _refreshTimer;
+    private bool _isRefreshing;
+
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new LoginViewModel();
+
+        _refreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _refreshTimer.Tick += RefreshTimer_Tick;
 
         // auto-popunjavanje poslednjeg username
         if (DataContext is LoginViewModel vm)
@@ -67,7 +78,6 @@ public partial class MainWindow : Window
             Height = 560;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
-            // Dashboard VM (bez ListHint/CompletionComment)
             var dash = new EmployeeDashboardViewModel
             {
                 Username = vm.Username,
@@ -76,6 +86,10 @@ public partial class MainWindow : Window
             };
 
             DataContext = dash;
+
+            // Prvi refresh odmah + start timer
+            RefreshTasks();
+            _refreshTimer.Start();
         }
         catch (Exception ex)
         {
@@ -83,15 +97,29 @@ public partial class MainWindow : Window
         }
     }
 
-    // Dugme "UDP zahtev" -> učitava zadatke (jer Refresh dugme ne radi)
-    private void UdpFetch_Click(object sender, RoutedEventArgs e)
+    private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
+        // Ne refreshuj ako nisi na dashboardu ili nisi konektovana
+        if (!_tcpLoginClient.IsConnected)
+            return;
+
+        RefreshTasks();
+    }
+
+    private void RefreshTasks()
+    {
+        if (_isRefreshing) return;
+        if (!_tcpLoginClient.IsConnected) return;
+
         if (DataContext is not EmployeeDashboardViewModel dash)
             return;
 
+        _isRefreshing = true;
+
         try
         {
-            var reply = _tcpLoginClient.SendAndReceive("TASKS\n");
+            // TCP zahtev za listu (server: LIST)
+            var reply = _tcpLoginClient.SendAndReceive("LIST\n");
 
             dash.AssignedTasks.Clear();
 
@@ -101,19 +129,20 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var lines = reply.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0);
-            foreach (var line in lines)
+            // server salje jednu liniju: task^task^task
+            var items = reply.Split('^').Select(x => x.Trim()).Where(x => x.Length > 0);
+            foreach (var item in items)
             {
-                var p = line.Split('|');
+                var p = item.Split('|');
                 if (p.Length < 5) continue;
 
                 dash.AssignedTasks.Add(new TaskRow
                 {
-                    Naziv = p[0],
-                    Menadzer = p[1],
-                    Rok = p[2],
-                    Prioritet = p[3],
-                    Status = p[4]
+                    Naziv = p[0].Trim(),
+                    Menadzer = p[1].Trim(),
+                    Rok = p[2].Trim(),
+                    Prioritet = p[3].Trim(),
+                    Status = p[4].Trim()
                 });
             }
 
@@ -121,7 +150,13 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            dash.FormHint = ex.Message;
+            // Ako pukne konekcija ili server ne odgovara, samo prikaži poruku (timer nastavlja da pokušava)
+            if (DataContext is EmployeeDashboardViewModel d2)
+                d2.FormHint = ex.Message;
+        }
+        finally
+        {
+            _isRefreshing = false;
         }
     }
 
@@ -138,11 +173,10 @@ public partial class MainWindow : Window
 
         try
         {
-            var reply = _tcpLoginClient.SendAndReceive($"START:{dash.SelectedTask.Naziv}\n");
+            var reply = _tcpLoginClient.SendAndReceive($"{ProtocolConstants.TcpTakePrefix}{dash.SelectedTask.Naziv}\n");
             dash.FormHint = reply;
 
-            // osveži listu nakon starta
-            UdpFetch_Click(sender, e);
+            RefreshTasks();
         }
         catch (Exception ex)
         {
@@ -163,12 +197,10 @@ public partial class MainWindow : Window
 
         try
         {
-            // bez komentara (jer si izbacio textbox)
-            var reply = _tcpLoginClient.SendAndReceive($"FINISH:{dash.SelectedTask.Naziv}\n");
+            var reply = _tcpLoginClient.SendAndReceive($"{ProtocolConstants.TcpDonePrefix}{dash.SelectedTask.Naziv}\n");
             dash.FormHint = reply;
 
-            // osveži listu nakon završetka
-            UdpFetch_Click(sender, e);
+            RefreshTasks();
         }
         catch (Exception ex)
         {
@@ -178,6 +210,7 @@ public partial class MainWindow : Window
 
     private void Logout_Click(object sender, RoutedEventArgs e)
     {
+        _refreshTimer.Stop();
         _tcpLoginClient.Dispose();
 
         DashboardPanel.Visibility = Visibility.Collapsed;
@@ -191,6 +224,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _refreshTimer.Stop();
         _tcpLoginClient.Dispose();
         base.OnClosed(e);
     }
