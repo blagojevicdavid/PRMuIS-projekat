@@ -1,2 +1,7 @@
-1. cuvanje login podatak
+1. cuvanje login podataka
 2. format tcp poruka/serialzacija
+3. id zadataka zbog duplih, ima li potrebe?
+4. Stavka 4 [nazivZadatka]:[novi prioriter], udp ili tcp?
+5. cuvanje podataka o taskovima, ima li potrebe da se cuva u fajl? u slucaju da se server ugasi
+6. server setup wizard?
+7. oznaka isteka roka?

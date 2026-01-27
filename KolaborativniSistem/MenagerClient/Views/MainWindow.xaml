@@ -183,6 +183,7 @@
 
                         <DataGrid Grid.Row="1"
                                   ItemsSource="{Binding ActiveTasks}"
+                                  SelectedItem="{Binding SelectedTask}"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"
                                   CanUserAddRows="False"
@@ -203,19 +204,17 @@
                         <!-- Povećanje prioriteta -->
                         <Grid Grid.Row="2" Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="10"/>
                                 <ColumnDefinition Width="160"/>
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Style="{StaticResource InputContainer}">
-                                <TextBox Style="{StaticResource GlassTextBox}"
-                                         Text="{Binding NewPriorityValue}"
-                                         ToolTip="Novi prioritet za izabrani zadatak"/>
+                            <Border Grid.Column="0" Background="{StaticResource AccentBrush}" CornerRadius="14" Height="38">
+                                <Button Style="{StaticResource FlatButton}" Content="Smanji prioritet" Foreground="White" Click="IncreasePriority_Click"/>
                             </Border>
 
                             <Border Grid.Column="2" Background="{StaticResource AccentBrush}" CornerRadius="14" Height="38">
-                                <Button Style="{StaticResource FlatButton}" Content="Povećaj prioritet" Foreground="White"/>
+                                <Button Style="{StaticResource FlatButton}" Content="Povećaj prioritet" Foreground="White" Click="DecreasePriority_Click"/>
                             </Border>
                         </Grid>
                     </Grid>

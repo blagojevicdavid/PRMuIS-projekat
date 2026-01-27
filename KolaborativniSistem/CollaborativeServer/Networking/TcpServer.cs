@@ -165,7 +165,7 @@ namespace CollaborativeServer.Networking
 
                 _store.AddTask(managerUsername, task);
 
-                _store.DebugPrint();//debug only
+                //_store.DebugPrint();//debug only
 
                 SendLine(client, "OK");
                 return true;
@@ -240,7 +240,7 @@ namespace CollaborativeServer.Networking
                 bool ok = _store.TrySetStatus(taskName, StatusZadatka.Zavrsen);
                 SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");
 
-                _store.DebugPrint();//debug only
+                //_store.DebugPrint();//debug only
                 return true;
             }
 

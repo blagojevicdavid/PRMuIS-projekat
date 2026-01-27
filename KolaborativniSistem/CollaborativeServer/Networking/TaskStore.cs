@@ -208,7 +208,7 @@ namespace CollaborativeServer.Networking
                 foreach (var t in uToku.Concat(naCekanju).Concat(zavrseni))
                 {
                     if(sb.Length > 0)
-                        sb.AppendLine();
+                        sb.Append(";");
 
                     sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}");
                 }

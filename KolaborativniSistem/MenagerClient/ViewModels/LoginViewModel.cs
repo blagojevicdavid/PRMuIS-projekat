@@ -80,6 +80,34 @@ public sealed class LoginViewModel : INotifyPropertyChanged
         set { _newTaskPriority = value; OnPropertyChanged(); }
     }
 
+    private ZadatakProjekta? _selectedTask;
+    public ZadatakProjekta? SelectedTask
+    {
+        get => _selectedTask;
+        set
+        {
+            _selectedTask = value;
+            SelectedTaskName = value?.Naziv; //pamti kljuc zbog refresha
+            OnPropertyChanged();
+        }
+    }
+
+    private int _newPriorityValue = 1;
+    public int NewPriorityValue
+    {
+        get => _newPriorityValue;
+        set { _newPriorityValue = value; OnPropertyChanged(); }
+    }
+
+    private string? _selectedTaskName;
+    public string? SelectedTaskName
+    {
+        get => _selectedTaskName;
+        set { _selectedTaskName = value; OnPropertyChanged(); }
+    }
+
+
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

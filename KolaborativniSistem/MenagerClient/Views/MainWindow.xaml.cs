@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private readonly TcpLoginClient _tcpLoginClient = new TcpLoginClient();
     private int _tcpPort;
     private DispatcherTimer? _autoTimer;
+    private string? _lastTasksSignature;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -115,7 +117,7 @@ public partial class MainWindow : Window
         try
         {
             _tcpLoginClient.SendLine(msg);
-            MessageBox.Show("Zadatak uspesno poslat!");
+            //MessageBox.Show("Zadatak uspesno poslat!");
 
             vm.NewTaskName = "";
             vm.NewTaskEmployee = "";
@@ -170,18 +172,64 @@ public partial class MainWindow : Window
         if (DataContext is not LoginViewModel vm) return;
         if (string.IsNullOrWhiteSpace(vm.Username)) return;
 
+        // zapamti selekciju
+        string? selectedTaskName = vm.SelectedTask?.Naziv;
+
         try
         {
             var tasks = await Task.Run(() =>
                 UdpTasksClient.GetAllForManager(vm.ServerIp, vm.UdpPort, vm.Username));
 
+            // pamti signature
+            string signature = string.Join("||",
+                tasks
+                    .OrderBy(t => t.Naziv)
+                    .ThenBy(t => t.Zaposleni)
+                    .ThenBy(t => t.Rok)
+                    .Select(t => $"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}")
+            );
+
+            //ne menja kolekciju ako se nije nista promenilo
+            if (signature == _lastTasksSignature)
+                return;
+
+            _lastTasksSignature = signature;
+
+            // update kolekcije
             vm.ActiveTasks.Clear();
             foreach (var t in tasks)
                 vm.ActiveTasks.Add(t);
+
+            // Restore selekcije
+            if (!string.IsNullOrWhiteSpace(selectedTaskName))
+            {
+                vm.SelectedTask = vm.ActiveTasks.FirstOrDefault(t => t.Naziv == selectedTaskName);
+            }
         }
         catch (Exception ex) 
         {
-         MessageBox.Show(ex.Message, "Auto refresh UDP error"); }
+            //iskljuciti nako debagovanja
+         //MessageBox.Show(ex.Message, "Auto refresh UDP error"); 
+        }
+    }
+
+    private void IncreasePriority_Click(object sender, RoutedEventArgs e) => ChangePriorityBy(+1);
+    private void DecreasePriority_Click(object sender, RoutedEventArgs e) => ChangePriorityBy(-1);
+
+    private void ChangePriorityBy(int delta)
+    {
+        if (DataContext is not LoginViewModel vm) return;
+        if (!_tcpLoginClient.IsConnected) { MessageBox.Show("Nema konekcije sa serverom!"); return; }
+        if (vm.SelectedTask is null) { MessageBox.Show("Izaberi zadatak u tabeli."); return; }
+
+        int next = vm.SelectedTask.Prioritet + delta;
+        if (next < 1) next = 1;
+        if (next > 5) next = 5;
+
+        if (next == vm.SelectedTask.Prioritet) return;
+
+        _tcpLoginClient.SendLine($"{vm.SelectedTask.Naziv}:{next}");
+        vm.SelectedTask.Prioritet = next; 
     }
 
     protected override void OnClosed(EventArgs e)

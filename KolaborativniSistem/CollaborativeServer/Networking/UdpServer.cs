@@ -64,7 +64,7 @@ namespace CollaborativeServer.Networking
 
             if (message.StartsWith(ProtocolConstants.UdpAllTasksPrefix))
             {
-                string username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
+                string username = message.Substring(ProtocolConstants.UdpAllTasksPrefix.Length).Trim();
                 string allTasks = _store.GetAllTasks(username);
                 return $"{ProtocolConstants.UdpTaskPrefix}{allTasks}";
             }
