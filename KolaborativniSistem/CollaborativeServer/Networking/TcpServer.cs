@@ -24,29 +24,29 @@ namespace CollaborativeServer.Networking
         {
             var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listener.Bind(new IPEndPoint(IPAddress.Parse(bindIp), tcpPort));
-            listener.Listen(10);
+            listener.Listen(10);// backlog 10, broj cekajucih konekcija
 
             Console.WriteLine($"[TCP] Listening on {bindIp}:{tcpPort}");
 
-            var clients = new List<Socket>();
+            var clients = new List<Socket>(); // aktivni klijenti
 
             while (true)
             {
-                var readList = new List<Socket>(clients) { listener };
+                var readList = new List<Socket>(clients) { listener };//postojeci klijenti + listener
                 Socket.Select(readList, null, null, 1_000_000);
 
                 foreach (var socket in readList)
                 {
-                    if (socket == listener)
+                    if (socket == listener)// novi klijent
                     {
                         var client = listener.Accept();
                         clients.Add(client);
                         _clients[client] = (false, ClientRole.Menadzer, "");
                         Console.WriteLine("[TCP] Client connected");
                     }
-                    else
+                    else  // postojeci klijent/podaci
                     {
-                        if (!HandleClient(socket))
+                        if (!HandleClient(socket))//ako poruka nije validna zatvara se konekcija
                         {
                             _clients.Remove(socket);
                             clients.Remove(socket);

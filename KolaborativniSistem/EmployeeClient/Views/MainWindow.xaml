@@ -72,9 +72,13 @@
 
     <!-- ROOT GRID -->
     <Grid Background="{StaticResource BgBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
 
         <!-- DASHBOARD -->
-        <Grid x:Name="DashboardPanel" Visibility="Collapsed" Margin="18">
+        <Grid x:Name="DashboardPanel" Visibility="Collapsed" Margin="18,18,18,18" Grid.ColumnSpan="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -216,7 +220,7 @@
                 Background="#CCFFFFFF"
                 CornerRadius="18"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center">
+                HorizontalAlignment="Center" Grid.Column="1">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.25"/>
             </Border.Effect>

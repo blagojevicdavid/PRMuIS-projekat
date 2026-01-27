@@ -5,3 +5,6 @@
 5. cuvanje podataka o taskovima, ima li potrebe da se cuva u fajl? u slucaju da se server ugasi
 6. server setup wizard?
 7. oznaka isteka roka?
+8. povecanje prioriteta samo za zadatke koji su na cekanju ili za sve?
+9. sedma tacka, da li mora pooling ili moze konkurentno
+10. oko zadnje tacke, komentar, realizacija ui
