@@ -88,16 +88,17 @@
                             <TextBlock Text="{Binding ConnectionStatus}" Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
                         </StackPanel>
                     </StackPanel>
-
+<!--
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Background="#1A4F8CFF" CornerRadius="14" Height="36" Padding="14,0" Margin="0,0,10,0">
                             <Button Style="{StaticResource FlatButton}" Content="Osveži" Foreground="#FF4F8CFF"/>
                         </Border>
 
                         <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="36" Padding="14,0">
-                            <Button Style="{StaticResource FlatButton}" Content="Odjava" Foreground="White"/>
+                            <Button Style="{StaticResource FlatButton}" Content="Odjava" Foreground="White" Click="Logout_Click"/>
                         </Border>
                     </StackPanel>
+                    -->
                 </Grid>
             </Border>
 
@@ -173,10 +174,11 @@
                                 <TextBlock Text="Aktivni zadaci" FontSize="16" FontWeight="SemiBold"/>
                                 <TextBlock Text="Zadaci koji su u toku" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
-
+                            <!-- Manuelni refresh
                             <Border Grid.Column="1" Background="#1A4F8CFF" CornerRadius="14" Height="34" Padding="12,0" VerticalAlignment="Center">
                                 <Button Style="{StaticResource FlatButton}" Content="UDP zahtev" Foreground="#FF4F8CFF"/>
                             </Border>
+                            -->
                         </Grid>
 
                         <DataGrid Grid.Row="1"

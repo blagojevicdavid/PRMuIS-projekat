@@ -17,7 +17,9 @@ namespace Shared.Protocol
         public const string TcpTakePrefix = "TAKE:";
         public const string TcpDonePrefix = "DONE:";
 
+        public const string UdpAllTasksPrefix = "SVI:";
+        public const string UdpTaskPrefix = "TASKS:";
 
-       // public const string
+
     }
 }

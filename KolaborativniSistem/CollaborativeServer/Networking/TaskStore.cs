@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using System.Text;
 using Shared.Models;
 
 namespace CollaborativeServer.Networking
@@ -150,6 +150,69 @@ namespace CollaborativeServer.Networking
                 }
 
                 Console.WriteLine("============================");
+            }
+        }
+
+        public List<ZadatakProjekta> GetAllTasksForManager(string managerUsername)
+        {
+            if (string.IsNullOrWhiteSpace(managerUsername))
+                return new List<ZadatakProjekta>();
+
+            lock (_lock)
+            {
+                if (!_taskByManager.TryGetValue(managerUsername, out var list))
+                    return new List<ZadatakProjekta>();
+
+                //soritrano po prioritetu
+                var uToku = list
+                    .Where(t => t.Status == StatusZadatka.UToku)
+                    .OrderBy(t => t.Prioritet)
+                    .ToList();
+
+                var naCekanju = list
+                    .Where(t => t.Status == StatusZadatka.NaCekanju)
+                    .OrderBy(t => t.Prioritet)
+                    .ToList();
+
+                var zavrseni = list
+                    .Where(t => t.Status == StatusZadatka.Zavrsen)
+                    .ToList();
+
+                //spojeno u jednu listu
+                uToku.AddRange(naCekanju);
+                uToku.AddRange(zavrseni);
+                return uToku;
+            }
+        }
+
+        public string GetAllTasks(string managerUsername)
+        {
+            if (string.IsNullOrWhiteSpace(managerUsername))
+                return string.Empty;
+        
+            lock(_lock)
+            {
+                if(!_taskByManager.TryGetValue(managerUsername, out var tasks))
+                    return string.Empty;
+
+                var uToku = tasks.Where(t => t.Status == StatusZadatka.UToku)
+                                 .OrderBy(t => t.Prioritet);
+
+                var naCekanju = tasks.Where(t => t.Status == StatusZadatka.NaCekanju)
+                                    .OrderBy(t => t.Prioritet);
+
+                var zavrseni = tasks.Where(t => t.Status == StatusZadatka.Zavrsen);
+
+                var sb = new StringBuilder();
+
+                foreach (var t in uToku.Concat(naCekanju).Concat(zavrseni))
+                {
+                    if(sb.Length > 0)
+                        sb.AppendLine();
+
+                    sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}");
+                }
+                return sb.ToString();
             }
         }
     }

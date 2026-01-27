@@ -30,8 +30,9 @@ namespace CollaborativeServer.Networking
             {
                 int received = socket.ReceiveFrom(buffer, ref remote);
                 string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
-
-                Console.WriteLine($"[UDP] Received: {message}");
+                bool messageIsSVI = true ? message.StartsWith(ProtocolConstants.UdpAllTasksPrefix) : false;
+                if (!messageIsSVI) 
+                    Console.WriteLine($"[UDP] Received: {message}");
 
                 string response = HandleMessage(message, tcpPort);
 
@@ -47,7 +48,6 @@ namespace CollaborativeServer.Networking
                 string username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
                 Console.WriteLine($"[UDP] Manager login: {username}");
 
-                
                 _store.EnsureManager(username); //dodavanje u dictionary
 
                 return $"{ProtocolConstants.UdpTcpInfoPrefix}{tcpPort}";
@@ -58,8 +58,15 @@ namespace CollaborativeServer.Networking
                 string username = message.Substring(ProtocolConstants.UdpLoginEmployeePrefix.Length).Trim();
                 Console.WriteLine($"[UDP] Employee login: {username}");
 
-                // Za zaposlenog trenutno ne pravimo entry u Dictionary (spec traži samo za menadžera)
+                // Za zaposlenog ne pravimo entry u Dictionary
                 return $"{ProtocolConstants.UdpTcpInfoPrefix}{tcpPort}";
+            }
+
+            if (message.StartsWith(ProtocolConstants.UdpAllTasksPrefix))
+            {
+                string username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
+                string allTasks = _store.GetAllTasks(username);
+                return $"{ProtocolConstants.UdpTaskPrefix}{allTasks}";
             }
 
             return "ERROR";

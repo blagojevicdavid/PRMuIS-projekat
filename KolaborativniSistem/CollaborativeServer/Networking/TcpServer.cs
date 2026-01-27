@@ -193,14 +193,15 @@ namespace CollaborativeServer.Networking
         // ZAPOSLENI:
         private bool HandleEmployeeMessage(Socket client, string employeeUsername, string message)
         {
-            Console.WriteLine($"[TCP][ZAPOSLENI:{employeeUsername}] {message}");
+            bool massageIsLIST = false;
+            
 
-            // === DODATO: LIST zadataka za zaposlenog ===
             // Klijent salje: "LIST"
             // Server vraca: "NO_TASKS" ili "Naziv|?|Rok|Prioritet|Status^Naziv2|?|Rok|Prioritet|Status"
             if (message.Equals("LIST", StringComparison.OrdinalIgnoreCase))
             {
                 var tasks = _store.GetTasksForEmployee(employeeUsername);
+                massageIsLIST = true;
 
                 if (tasks.Count == 0)
                 {
@@ -215,7 +216,10 @@ namespace CollaborativeServer.Networking
                 SendLine(client, payload);
                 return true;
             }
-            // ===========================================
+
+            if(!massageIsLIST)
+                Console.WriteLine($"[TCP][ZAPOSLENI:{employeeUsername}] {message}");
+
 
             if (message.StartsWith(ProtocolConstants.TcpTakePrefix, StringComparison.OrdinalIgnoreCase)) // "TAKE:"
             {

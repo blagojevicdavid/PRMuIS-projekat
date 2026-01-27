@@ -6,14 +6,17 @@ using System.Threading.Tasks;
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Collections.ObjectModel;
 
 namespace ManagerClient.ViewModels;
+using Shared.Models;
 
 public sealed class LoginViewModel : INotifyPropertyChanged
 {
     private string _serverIp = "127.0.0.1";
     private int _udpPort = 50032;
     private string _username = ManagerClient.Properties.Settings.Default.LastManagerUsername ?? "";
+    public ObservableCollection<ZadatakProjekta> ActiveTasks { get; } = new ObservableCollection<ZadatakProjekta>();
 
     public string ServerIp
     {

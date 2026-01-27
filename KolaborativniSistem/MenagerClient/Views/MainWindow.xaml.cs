@@ -8,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Threading.Tasks;
+using System.Windows.Threading;
 using System;
 
 
@@ -21,7 +23,7 @@ public partial class MainWindow : Window
 {
     private readonly TcpLoginClient _tcpLoginClient = new TcpLoginClient();
     private int _tcpPort;
-
+    private DispatcherTimer? _autoTimer;
     public MainWindow()
     {
         InitializeComponent();
@@ -83,6 +85,8 @@ public partial class MainWindow : Window
             Height = 600;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
+            StartAutoRefresh();
+
         }
         catch (Exception ex)
         {
@@ -112,6 +116,12 @@ public partial class MainWindow : Window
         {
             _tcpLoginClient.SendLine(msg);
             MessageBox.Show("Zadatak uspesno poslat!");
+
+            vm.NewTaskName = "";
+            vm.NewTaskEmployee = "";
+            vm.NewTaskDueDate = DateTime.Today.AddDays(1);
+            vm.NewTaskPriority = 1;
+            
         }
 
         catch(Exception ex)
@@ -120,9 +130,64 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Logout_Click(object sender, RoutedEventArgs e)
+    {
+        _autoTimer?.Stop();
+        _autoTimer = null;
+        // zatvaranje tcp konekcije
+        _tcpLoginClient.Dispose();
+        // prikazivanje login panela i sakrivanje dashboarda
+        LoginCard.Visibility = Visibility.Visible;
+        DashboardPanel.Visibility = Visibility.Collapsed;
+        // smanjenje prozora
+        Width = 480;
+        Height = 500;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        if(DataContext is LoginViewModel vm)
+        {
+            vm.NewTaskName = "";
+            vm.NewTaskEmployee = "";
+            vm.NewTaskDueDate = DateTime.Today.AddDays(1);
+            vm.NewTaskPriority = 1;
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        _autoTimer?.Stop();
+        _autoTimer = new DispatcherTimer();
+        _autoTimer.Interval = TimeSpan.FromSeconds(1);
+        _autoTimer.Tick += async (_, __) => RefreshAllTaskAsync();
+        _autoTimer.Start();
+
+        _ = RefreshAllTaskAsync();
+
+    }
+
+    private async Task RefreshAllTaskAsync()
+    {
+        if (DataContext is not LoginViewModel vm) return;
+        if (string.IsNullOrWhiteSpace(vm.Username)) return;
+
+        try
+        {
+            var tasks = await Task.Run(() =>
+                UdpTasksClient.GetAllForManager(vm.ServerIp, vm.UdpPort, vm.Username));
+
+            vm.ActiveTasks.Clear();
+            foreach (var t in tasks)
+                vm.ActiveTasks.Add(t);
+        }
+        catch (Exception ex) 
+        {
+         MessageBox.Show(ex.Message, "Auto refresh UDP error"); }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _tcpLoginClient.Dispose();
+        _autoTimer?.Stop();
         base.OnClosed(e);
     }
 }
