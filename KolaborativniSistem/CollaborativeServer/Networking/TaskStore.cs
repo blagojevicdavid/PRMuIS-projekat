@@ -11,6 +11,8 @@ namespace CollaborativeServer.Networking
         private readonly Dictionary<string, List<ZadatakProjekta>> _taskByManager = new();
         private readonly object _lock = new();
 
+        // ✅ Redosled statusa po specifikaciji:
+        // UToku (vrh), NaCekanju (sredina), Zavrsen (dno)
         private static int StatusRank(StatusZadatka s) => s switch
         {
             StatusZadatka.UToku => 0,
@@ -19,6 +21,7 @@ namespace CollaborativeServer.Networking
             _ => 9
         };
 
+        // prijava menadzera
         public void EnsureManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -31,6 +34,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
+        // Dodavanje zadatka
         public void AddTask(string managerUsername, ZadatakProjekta task)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
@@ -40,11 +44,13 @@ namespace CollaborativeServer.Networking
             lock (_lock)
             {
                 EnsureManager(managerUsername);
+
                 task.Status = StatusZadatka.NaCekanju;
                 _taskByManager[managerUsername].Add(task);
             }
         }
 
+        // vraca sve zadatke kojima je status "U Toku" (za managera)
         public List<ZadatakProjekta> GetInProgressTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -55,10 +61,13 @@ namespace CollaborativeServer.Networking
                 if (!_taskByManager.TryGetValue(managerUsername, out var list))
                     return new List<ZadatakProjekta>();
 
-                return list.Where(t => t.Status == StatusZadatka.UToku).ToList();
+                return list
+                    .Where(t => t.Status == StatusZadatka.UToku)
+                    .ToList();
             }
         }
 
+        // povećanje prioriteta
         public bool TryIncreasePriority(string managerUsername, string taskName, int newPriority)
         {
             if (string.IsNullOrWhiteSpace(managerUsername) || string.IsNullOrWhiteSpace(taskName))
@@ -79,6 +88,8 @@ namespace CollaborativeServer.Networking
             }
         }
 
+        // ✅ ZAPOSLENI: vrati zadatke + manager username
+        // ✅ Sortiranje po status grupama + unutar grupe po prioritetu (1 = najveći prioritet)
         public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {
             if (string.IsNullOrWhiteSpace(employeeUsername))
@@ -90,15 +101,15 @@ namespace CollaborativeServer.Networking
                     .SelectMany(kvp => kvp.Value
                         .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
                         .Select(t => (ManagerUsername: kvp.Key, Task: t)))
-                    .OrderBy(x => StatusRank(x.Task.Status))      
-                    .ThenBy(x => x.Task.Prioritet)               
+                    .OrderBy(x => StatusRank(x.Task.Status)) // UToku -> NaCekanju -> Zavrsen
+                    .ThenBy(x => x.Task.Prioritet)          // ✅ unutar statusa po prioritetu
                     .ThenBy(x => x.Task.Rok)
                     .ThenBy(x => x.Task.Naziv, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
 
-        
+        // Promena statusa zadatka po nazivu (TAKE)
         public bool TrySetStatus(string taskName, StatusZadatka newStatus)
         {
             if (string.IsNullOrWhiteSpace(taskName))
@@ -121,7 +132,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
-       
+        // ✅ Završavanje + komentar (DONE)
         public bool TryCompleteTask(string taskName, string? comment)
         {
             if (string.IsNullOrWhiteSpace(taskName))
@@ -137,7 +148,7 @@ namespace CollaborativeServer.Networking
                     if (t == null) continue;
 
                     t.Status = StatusZadatka.Zavrsen;
-                    t.Komentar = (comment ?? "").Trim(); 
+                    t.Komentar = (comment ?? "").Trim();
                     return true;
                 }
 
@@ -179,6 +190,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
+        // Manager prikaz (ostaje kako je bilo)
         public List<ZadatakProjekta> GetAllTasksForManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -189,15 +201,19 @@ namespace CollaborativeServer.Networking
                 if (!_taskByManager.TryGetValue(managerUsername, out var list))
                     return new List<ZadatakProjekta>();
 
-                var uToku = list.Where(t => t.Status == StatusZadatka.UToku)
-                                .OrderBy(t => t.Prioritet)
-                                .ToList();
+                var uToku = list
+                    .Where(t => t.Status == StatusZadatka.UToku)
+                    .OrderBy(t => t.Prioritet)
+                    .ToList();
 
-                var naCekanju = list.Where(t => t.Status == StatusZadatka.NaCekanju)
-                                    .OrderBy(t => t.Prioritet)
-                                    .ToList();
+                var naCekanju = list
+                    .Where(t => t.Status == StatusZadatka.NaCekanju)
+                    .OrderBy(t => t.Prioritet)
+                    .ToList();
 
-                var zavrseni = list.Where(t => t.Status == StatusZadatka.Zavrsen).ToList();
+                var zavrseni = list
+                    .Where(t => t.Status == StatusZadatka.Zavrsen)
+                    .ToList();
 
                 uToku.AddRange(naCekanju);
                 uToku.AddRange(zavrseni);
@@ -232,6 +248,7 @@ namespace CollaborativeServer.Networking
 
                     sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}");
                 }
+
                 return sb.ToString();
             }
         }
