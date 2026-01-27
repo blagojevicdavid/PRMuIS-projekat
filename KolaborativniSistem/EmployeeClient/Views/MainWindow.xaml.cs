@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using EmployeeClient.Networking;
 using EmployeeClient.ViewModels;
 using Shared.Protocol;
+using Shared.Models;
 
 namespace EmployeeClient.Views;
 
@@ -26,7 +28,6 @@ public partial class MainWindow : Window
         };
         _refreshTimer.Tick += RefreshTimer_Tick;
 
-        // auto-popunjavanje poslednjeg username
         if (DataContext is LoginViewModel vm)
         {
             var last = EmployeeClient.Properties.Settings.Default.LastEmployeeUsername;
@@ -51,7 +52,6 @@ public partial class MainWindow : Window
 
         try
         {
-            // UDP login -> dobij TCP port
             string response = UdpLoginClient.Login(vm.ServerIp, vm.UdpPort, vm.Username);
 
             var trimmed = response.Trim();
@@ -67,10 +67,8 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // TCP connect + identifikacija
             await _tcpLoginClient.ConnectAndIdentifyAsync(vm.ServerIp, tcpPort, vm.Username);
 
-            // UI switch
             LoginCard.Visibility = Visibility.Collapsed;
             DashboardPanel.Visibility = Visibility.Visible;
 
@@ -82,12 +80,12 @@ public partial class MainWindow : Window
             {
                 Username = vm.Username,
                 ConnectionStatus = $"TCP:{vm.ServerIp}:{tcpPort}",
-                FormHint = ""
+                FormHint = "",
+                CompletionComment = ""
             };
 
             DataContext = dash;
 
-            // Prvi refresh odmah + start timer
             RefreshTasks();
             _refreshTimer.Start();
         }
@@ -99,12 +97,19 @@ public partial class MainWindow : Window
 
     private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
-        // Ne refreshuj ako nisi na dashboardu ili nisi konektovana
         if (!_tcpLoginClient.IsConnected)
             return;
 
         RefreshTasks();
     }
+
+    private static int StatusRank(StatusZadatka s) => s switch
+    {
+        StatusZadatka.UToku => 0,
+        StatusZadatka.NaCekanju => 1,
+        StatusZadatka.Zavrsen => 2,
+        _ => 9
+    };
 
     private void RefreshTasks()
     {
@@ -116,43 +121,66 @@ public partial class MainWindow : Window
 
         _isRefreshing = true;
 
+        
+        string? selectedNaziv = dash.SelectedTask?.Naziv;
+
         try
         {
-            // TCP zahtev za listu (server: LIST)
             var reply = _tcpLoginClient.SendAndReceive("LIST\n");
-
-            dash.AssignedTasks.Clear();
 
             if (string.IsNullOrWhiteSpace(reply) || reply == "NO_TASKS")
             {
+                dash.AssignedTasks.Clear();
+                dash.SelectedTask = null;
                 dash.FormHint = "Nema dodeljenih zadataka.";
+                dash.NotifySelectionDerived();
                 return;
             }
 
-            // server salje jednu liniju: task^task^task
+            var parsed = new List<TaskRow>();
+
             var items = reply.Split('^').Select(x => x.Trim()).Where(x => x.Length > 0);
             foreach (var item in items)
             {
                 var p = item.Split('|');
                 if (p.Length < 5) continue;
 
-                dash.AssignedTasks.Add(new TaskRow
+                var statusStr = p[4].Trim();
+                if (!Enum.TryParse<StatusZadatka>(statusStr, true, out var status))
+                    status = StatusZadatka.NaCekanju;
+
+                parsed.Add(new TaskRow
                 {
                     Naziv = p[0].Trim(),
                     Menadzer = p[1].Trim(),
                     Rok = p[2].Trim(),
                     Prioritet = p[3].Trim(),
-                    Status = p[4].Trim()
+                    Status = status
                 });
             }
 
+            
+            parsed = parsed
+                .OrderBy(t => StatusRank(t.Status))
+                .ThenBy(t => int.TryParse(t.Prioritet, out var pr) ? pr : int.MaxValue)
+                .ThenBy(t => t.Rok)
+                .ThenBy(t => t.Naziv, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            dash.AssignedTasks.Clear();
+            foreach (var t in parsed)
+                dash.AssignedTasks.Add(t);
+
+           
+            if (!string.IsNullOrWhiteSpace(selectedNaziv))
+                dash.SelectedTask = dash.AssignedTasks.FirstOrDefault(x => x.Naziv == selectedNaziv);
+
             dash.FormHint = $"Učitano: {dash.AssignedTasks.Count}";
+            dash.NotifySelectionDerived();
         }
         catch (Exception ex)
         {
-            // Ako pukne konekcija ili server ne odgovara, samo prikaži poruku (timer nastavlja da pokušava)
-            if (DataContext is EmployeeDashboardViewModel d2)
-                d2.FormHint = ex.Message;
+            dash.FormHint = ex.Message;
         }
         finally
         {
@@ -167,7 +195,13 @@ public partial class MainWindow : Window
 
         if (dash.SelectedTask == null)
         {
-            dash.FormHint = "Izaberi zadatak.";
+            dash.FormHint = "Izaberi zadatak iz tabele.";
+            return;
+        }
+
+        if (dash.SelectedTask.Status != StatusZadatka.NaCekanju)
+        {
+            dash.FormHint = "Možeš preuzeti samo zadatak koji je Na čekanju.";
             return;
         }
 
@@ -176,6 +210,7 @@ public partial class MainWindow : Window
             var reply = _tcpLoginClient.SendAndReceive($"{ProtocolConstants.TcpTakePrefix}{dash.SelectedTask.Naziv}\n");
             dash.FormHint = reply;
 
+           
             RefreshTasks();
         }
         catch (Exception ex)
@@ -191,14 +226,31 @@ public partial class MainWindow : Window
 
         if (dash.SelectedTask == null)
         {
-            dash.FormHint = "Izaberi zadatak.";
+            dash.FormHint = "Izaberi zadatak iz tabele.";
+            return;
+        }
+
+        if (dash.SelectedTask.Status != StatusZadatka.UToku)
+        {
+            dash.FormHint = "Možeš završiti samo zadatak koji je U toku.";
             return;
         }
 
         try
         {
-            var reply = _tcpLoginClient.SendAndReceive($"{ProtocolConstants.TcpDonePrefix}{dash.SelectedTask.Naziv}\n");
+            string taskName = dash.SelectedTask.Naziv;
+            string comment = (dash.CompletionComment ?? "").Trim();
+
+            
+            string msg = string.IsNullOrWhiteSpace(comment)
+                ? $"{ProtocolConstants.TcpDonePrefix}{taskName}\n"
+                : $"{ProtocolConstants.TcpDonePrefix}{taskName}|{comment}\n";
+
+            var reply = _tcpLoginClient.SendAndReceive(msg);
             dash.FormHint = reply;
+
+            if (reply.Trim().Equals("OK", StringComparison.OrdinalIgnoreCase))
+                dash.CompletionComment = "";
 
             RefreshTasks();
         }

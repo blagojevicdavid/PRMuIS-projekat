@@ -12,7 +12,6 @@ namespace CollaborativeServer.Networking
     public sealed class TcpServer
     {
         private readonly TaskStore _store;
-
         private readonly Dictionary<Socket, (bool Identified, ClientRole Role, string Username)> _clients = new();
 
         public TcpServer(TaskStore store)
@@ -24,29 +23,29 @@ namespace CollaborativeServer.Networking
         {
             var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listener.Bind(new IPEndPoint(IPAddress.Parse(bindIp), tcpPort));
-            listener.Listen(10);// backlog 10, broj cekajucih konekcija
+            listener.Listen(10);
 
             Console.WriteLine($"[TCP] Listening on {bindIp}:{tcpPort}");
 
-            var clients = new List<Socket>(); // aktivni klijenti
+            var clients = new List<Socket>();
 
             while (true)
             {
-                var readList = new List<Socket>(clients) { listener };//postojeci klijenti + listener
+                var readList = new List<Socket>(clients) { listener };
                 Socket.Select(readList, null, null, 1_000_000);
 
                 foreach (var socket in readList)
                 {
-                    if (socket == listener)// novi klijent
+                    if (socket == listener)
                     {
                         var client = listener.Accept();
                         clients.Add(client);
                         _clients[client] = (false, ClientRole.Menadzer, "");
                         Console.WriteLine("[TCP] Client connected");
                     }
-                    else  // postojeci klijent/podaci
+                    else
                     {
-                        if (!HandleClient(socket))//ako poruka nije validna zatvara se konekcija
+                        if (!HandleClient(socket))
                         {
                             _clients.Remove(socket);
                             clients.Remove(socket);
@@ -69,11 +68,9 @@ namespace CollaborativeServer.Networking
 
                 string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
 
-                // handlovanje vise linija, uzima se samo prva
                 int nl = message.IndexOf('\n');
                 if (nl >= 0) message = message.Substring(0, nl).Trim();
 
-                // identifikacija
                 if (_clients.TryGetValue(client, out var info) && !info.Identified)
                     return HandleIdentify(client, message);
 
@@ -96,7 +93,7 @@ namespace CollaborativeServer.Networking
 
         private bool HandleIdentify(Socket client, string message)
         {
-            if (message.StartsWith(ProtocolConstants.UdpLoginManagerPrefix)) // "MENADZER:"
+            if (message.StartsWith(ProtocolConstants.UdpLoginManagerPrefix))
             {
                 var username = message.Substring(ProtocolConstants.UdpLoginManagerPrefix.Length).Trim();
                 _clients[client] = (true, ClientRole.Menadzer, username);
@@ -108,7 +105,7 @@ namespace CollaborativeServer.Networking
                 return true;
             }
 
-            if (message.StartsWith(ProtocolConstants.UdpLoginEmployeePrefix)) // "ZAPOSLENI:"
+            if (message.StartsWith(ProtocolConstants.UdpLoginEmployeePrefix))
             {
                 var username = message.Substring(ProtocolConstants.UdpLoginEmployeePrefix.Length).Trim();
                 _clients[client] = (true, ClientRole.Zaposleni, username);
@@ -122,14 +119,12 @@ namespace CollaborativeServer.Networking
             return true;
         }
 
-        // MENADZER:
         private bool HandleManagerMessage(Socket client, string managerUsername, string message)
         {
             Console.WriteLine($"[TCP][MENADZER:{managerUsername}] {message}");
 
             if (message.StartsWith(ProtocolConstants.TcpSendPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                // SEND:Naziv|Zaposleni|YYYY-MM-DD|Prioritet - format poruke
                 var payload = message.Substring(ProtocolConstants.TcpSendPrefix.Length);
                 var parts = payload.Split('|');
 
@@ -160,18 +155,16 @@ namespace CollaborativeServer.Networking
                     Zaposleni = zaposleni,
                     Rok = rok,
                     Prioritet = prioritet,
-                    Status = StatusZadatka.NaCekanju
+                    Status = StatusZadatka.NaCekanju,
+                    Komentar = ""
                 };
 
                 _store.AddTask(managerUsername, task);
-
-                //_store.DebugPrint();//debug only
 
                 SendLine(client, "OK");
                 return true;
             }
 
-            //"[nazivZadatka]:[noviPrioritet]"
             int idx = message.LastIndexOf(':');
             if (idx > 0)
             {
@@ -190,18 +183,15 @@ namespace CollaborativeServer.Networking
             return true;
         }
 
-        // ZAPOSLENI:
         private bool HandleEmployeeMessage(Socket client, string employeeUsername, string message)
         {
             bool massageIsLIST = false;
-            
 
-            // Klijent salje: "LIST"
-            // Server vraca: "NO_TASKS" ili "Naziv|?|Rok|Prioritet|Status^Naziv2|?|Rok|Prioritet|Status"
             if (message.Equals("LIST", StringComparison.OrdinalIgnoreCase))
             {
-                var tasks = _store.GetTasksForEmployee(employeeUsername);
                 massageIsLIST = true;
+
+                var tasks = _store.GetTasksForEmployeeWithManager(employeeUsername);
 
                 if (tasks.Count == 0)
                 {
@@ -209,19 +199,18 @@ namespace CollaborativeServer.Networking
                     return true;
                 }
 
-                var payload = string.Join("^", tasks.ConvertAll(t =>
-                    $"{t.Naziv}|?|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{t.Status}"
+                var payload = string.Join("^", tasks.ConvertAll(x =>
+                    $"{x.Task.Naziv}|{x.ManagerUsername}|{x.Task.Rok:yyyy-MM-dd}|{x.Task.Prioritet}|{x.Task.Status}"
                 ));
 
                 SendLine(client, payload);
                 return true;
             }
 
-            if(!massageIsLIST)
+            if (!massageIsLIST)
                 Console.WriteLine($"[TCP][ZAPOSLENI:{employeeUsername}] {message}");
 
-
-            if (message.StartsWith(ProtocolConstants.TcpTakePrefix, StringComparison.OrdinalIgnoreCase)) // "TAKE:"
+            if (message.StartsWith(ProtocolConstants.TcpTakePrefix, StringComparison.OrdinalIgnoreCase))
             {
                 string taskName = message.Substring(ProtocolConstants.TcpTakePrefix.Length).Trim();
                 bool ok = _store.TrySetStatus(taskName, StatusZadatka.UToku);
@@ -229,18 +218,17 @@ namespace CollaborativeServer.Networking
                 return true;
             }
 
-            if (message.StartsWith(ProtocolConstants.TcpDonePrefix, StringComparison.OrdinalIgnoreCase)) // "DONE:"
+            if (message.StartsWith(ProtocolConstants.TcpDonePrefix, StringComparison.OrdinalIgnoreCase))
             {
                 string rest = message.Substring(ProtocolConstants.TcpDonePrefix.Length);
-                string taskName = rest;
 
+                
                 var parts = rest.Split('|', 2);
-                taskName = parts[0].Trim();
+                string taskName = parts[0].Trim();
+                string? comment = parts.Length == 2 ? parts[1].Trim() : null;
 
-                bool ok = _store.TrySetStatus(taskName, StatusZadatka.Zavrsen);
+                bool ok = _store.TryCompleteTask(taskName, comment);
                 SendLine(client, ok ? "OK" : "ERR_NOT_FOUND");
-
-                //_store.DebugPrint();//debug only
                 return true;
             }
 

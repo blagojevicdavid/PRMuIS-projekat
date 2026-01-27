@@ -11,7 +11,14 @@ namespace CollaborativeServer.Networking
         private readonly Dictionary<string, List<ZadatakProjekta>> _taskByManager = new();
         private readonly object _lock = new();
 
-        // prijava menadzera
+        private static int StatusRank(StatusZadatka s) => s switch
+        {
+            StatusZadatka.UToku => 0,
+            StatusZadatka.NaCekanju => 1,
+            StatusZadatka.Zavrsen => 2,
+            _ => 9
+        };
+
         public void EnsureManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -20,11 +27,10 @@ namespace CollaborativeServer.Networking
             lock (_lock)
             {
                 if (!_taskByManager.ContainsKey(managerUsername))
-                    _taskByManager[managerUsername] = new List<ZadatakProjekta>(); //dodavanje prazne liste ako ne postoji dict sa tim menadzerom
+                    _taskByManager[managerUsername] = new List<ZadatakProjekta>();
             }
         }
 
-        //Dodavanje zadatka
         public void AddTask(string managerUsername, ZadatakProjekta task)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
@@ -34,15 +40,11 @@ namespace CollaborativeServer.Networking
             lock (_lock)
             {
                 EnsureManager(managerUsername);
-
-                // 
                 task.Status = StatusZadatka.NaCekanju;
-
                 _taskByManager[managerUsername].Add(task);
             }
         }
 
-        // vraca sve zadatke kojima je status "U Toku"
         public List<ZadatakProjekta> GetInProgressTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -53,13 +55,10 @@ namespace CollaborativeServer.Networking
                 if (!_taskByManager.TryGetValue(managerUsername, out var list))
                     return new List<ZadatakProjekta>();
 
-                return list
-                    .Where(t => t.Status == StatusZadatka.UToku)
-                    .ToList();
+                return list.Where(t => t.Status == StatusZadatka.UToku).ToList();
             }
         }
 
-        //povećanje prioriteta
         public bool TryIncreasePriority(string managerUsername, string taskName, int newPriority)
         {
             if (string.IsNullOrWhiteSpace(managerUsername) || string.IsNullOrWhiteSpace(taskName))
@@ -80,23 +79,26 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        //vrati sve zadatke dodeljene korisniku po prioritetu rastuće
-        public List<ZadatakProjekta> GetTasksForEmployee(string employeeUsername)
+        public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {
             if (string.IsNullOrWhiteSpace(employeeUsername))
-                return new List<ZadatakProjekta>();
+                return new List<(string, ZadatakProjekta)>();
 
             lock (_lock)
             {
-                return _taskByManager.Values
-                    .SelectMany(x => x)
-                    .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(t => t.Prioritet)
+                return _taskByManager
+                    .SelectMany(kvp => kvp.Value
+                        .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
+                        .Select(t => (ManagerUsername: kvp.Key, Task: t)))
+                    .OrderBy(x => StatusRank(x.Task.Status))      
+                    .ThenBy(x => x.Task.Prioritet)               
+                    .ThenBy(x => x.Task.Rok)
+                    .ThenBy(x => x.Task.Naziv, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
 
-        //Promena statusa zadatka po nazivu
+        
         public bool TrySetStatus(string taskName, StatusZadatka newStatus)
         {
             if (string.IsNullOrWhiteSpace(taskName))
@@ -112,6 +114,30 @@ namespace CollaborativeServer.Networking
                     if (t == null) continue;
 
                     t.Status = newStatus;
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+       
+        public bool TryCompleteTask(string taskName, string? comment)
+        {
+            if (string.IsNullOrWhiteSpace(taskName))
+                return false;
+
+            lock (_lock)
+            {
+                foreach (var list in _taskByManager.Values)
+                {
+                    var t = list.FirstOrDefault(x =>
+                        string.Equals(x.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
+
+                    if (t == null) continue;
+
+                    t.Status = StatusZadatka.Zavrsen;
+                    t.Komentar = (comment ?? "").Trim(); 
                     return true;
                 }
 
@@ -144,7 +170,7 @@ namespace CollaborativeServer.Networking
                     foreach (var t in kvp.Value)
                     {
                         Console.WriteLine(
-                            $"  - {t.Naziv} | Zaposleni: {t.Zaposleni} | Status: {t.Status} | Prioritet: {t.Prioritet} | Rok: {t.Rok:yyyy-MM-dd}"
+                            $"  - {t.Naziv} | Zaposleni: {t.Zaposleni} | Status: {t.Status} | Prioritet: {t.Prioritet} | Rok: {t.Rok:yyyy-MM-dd} | Komentar: {t.Komentar}"
                         );
                     }
                 }
@@ -163,22 +189,16 @@ namespace CollaborativeServer.Networking
                 if (!_taskByManager.TryGetValue(managerUsername, out var list))
                     return new List<ZadatakProjekta>();
 
-                //soritrano po prioritetu
-                var uToku = list
-                    .Where(t => t.Status == StatusZadatka.UToku)
-                    .OrderBy(t => t.Prioritet)
-                    .ToList();
+                var uToku = list.Where(t => t.Status == StatusZadatka.UToku)
+                                .OrderBy(t => t.Prioritet)
+                                .ToList();
 
-                var naCekanju = list
-                    .Where(t => t.Status == StatusZadatka.NaCekanju)
-                    .OrderBy(t => t.Prioritet)
-                    .ToList();
+                var naCekanju = list.Where(t => t.Status == StatusZadatka.NaCekanju)
+                                    .OrderBy(t => t.Prioritet)
+                                    .ToList();
 
-                var zavrseni = list
-                    .Where(t => t.Status == StatusZadatka.Zavrsen)
-                    .ToList();
+                var zavrseni = list.Where(t => t.Status == StatusZadatka.Zavrsen).ToList();
 
-                //spojeno u jednu listu
                 uToku.AddRange(naCekanju);
                 uToku.AddRange(zavrseni);
                 return uToku;
@@ -189,17 +209,17 @@ namespace CollaborativeServer.Networking
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
                 return string.Empty;
-        
-            lock(_lock)
+
+            lock (_lock)
             {
-                if(!_taskByManager.TryGetValue(managerUsername, out var tasks))
+                if (!_taskByManager.TryGetValue(managerUsername, out var tasks))
                     return string.Empty;
 
                 var uToku = tasks.Where(t => t.Status == StatusZadatka.UToku)
                                  .OrderBy(t => t.Prioritet);
 
                 var naCekanju = tasks.Where(t => t.Status == StatusZadatka.NaCekanju)
-                                    .OrderBy(t => t.Prioritet);
+                                     .OrderBy(t => t.Prioritet);
 
                 var zavrseni = tasks.Where(t => t.Status == StatusZadatka.Zavrsen);
 
@@ -207,7 +227,7 @@ namespace CollaborativeServer.Networking
 
                 foreach (var t in uToku.Concat(naCekanju).Concat(zavrseni))
                 {
-                    if(sb.Length > 0)
+                    if (sb.Length > 0)
                         sb.Append(";");
 
                     sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}");

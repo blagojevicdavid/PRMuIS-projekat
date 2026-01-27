@@ -9,7 +9,6 @@
         Background="#FFEEF2F6">
 
     <Window.Resources>
-        <!-- Colors -->
         <SolidColorBrush x:Key="BgBrush" Color="#FFEEF2F6"/>
         <SolidColorBrush x:Key="CardBrush" Color="#CCFFFFFF"/>
         <SolidColorBrush x:Key="InputBrush" Color="#FFF8F9FB"/>
@@ -18,7 +17,6 @@
         <SolidColorBrush x:Key="DangerBrush" Color="#FFE64B4B"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#FF2FB36D"/>
 
-        <!-- Glass card -->
         <Style x:Key="GlassCard" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="18"/>
@@ -31,21 +29,12 @@
             </Setter>
         </Style>
 
-        <!-- Input -->
-        <Style x:Key="GlassTextBox" TargetType="TextBox">
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-
         <Style x:Key="InputContainer" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource InputBrush}"/>
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
 
-        <!-- Flat button -->
         <Style x:Key="FlatButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -62,7 +51,6 @@
             </Setter>
         </Style>
 
-        <!-- Small pill button -->
         <Style x:Key="PillButtonBorder" TargetType="Border">
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Height" Value="36"/>
@@ -70,7 +58,6 @@
         </Style>
     </Window.Resources>
 
-    <!-- ROOT GRID -->
     <Grid Background="{StaticResource BgBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0*"/>
@@ -127,29 +114,22 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel>
-                                <TextBlock Text="Dodeljeni zadaci" FontSize="16" FontWeight="SemiBold"/>
-                                <TextBlock Text="Sortirano po prioritetu (najmanji broj = najveći prioritet)"
-                                           FontSize="12"
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           Margin="0,2,0,0"/>
-                            </StackPanel>
-
-                            <!-- Dugme 'UDP zahtev' IZBAČENO -->
-                        </Grid>
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="Dodeljeni zadaci" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="Klikni na red u tabeli da izabereš zadatak"
+                                       FontSize="12"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
 
                         <DataGrid Grid.Row="1"
                                   ItemsSource="{Binding AssignedTasks}"
                                   SelectedItem="{Binding SelectedTask}"
+                                  SelectionMode="Single"
+                                  SelectionUnit="FullRow"
+                                  IsReadOnly="True"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"
                                   CanUserAddRows="False"
@@ -163,13 +143,13 @@
                                 <DataGridTextColumn Header="Menadžer" Binding="{Binding Menadzer}" Width="*"/>
                                 <DataGridTextColumn Header="Rok" Binding="{Binding Rok}" Width="*"/>
                                 <DataGridTextColumn Header="Prioritet" Binding="{Binding Prioritet}" Width="Auto"/>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="Auto"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
                 </Border>
 
-                <!-- Right: Actions (unchanged) -->
+                <!-- Right: Actions -->
                 <Border Grid.Column="2" Style="{StaticResource GlassCard}">
                     <StackPanel>
                         <TextBlock Text="Rad nad izabranim zadatkom" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
@@ -181,18 +161,19 @@
                                            FontWeight="SemiBold"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                     <TextBlock Text="Status: " Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
-                                    <TextBlock Text="{Binding SelectedTask.Status}" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding SelectedStatusText}" FontSize="12" FontWeight="SemiBold"/>
                                     <TextBlock Text="   •   " Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
                                     <TextBlock Text="Prioritet: " Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
-                                    <TextBlock Text="{Binding SelectedTask.Prioritet}" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding SelectedPriorityText}" FontSize="12" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="40" Margin="0,0,0,10">
+                        <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="40" Margin="0,0,0,10" Opacity="1">
                             <Button Style="{StaticResource FlatButton}"
                                     Content="Preuzmi / Startuj (U toku)"
                                     Foreground="White"
+                                    IsEnabled="{Binding CanTakeSelected}"
                                     Click="StartTask_Click"/>
                         </Border>
 
@@ -200,7 +181,24 @@
                             <Button Style="{StaticResource FlatButton}"
                                     Content="Završi zadatak"
                                     Foreground="White"
+                                    IsEnabled="{Binding CanFinishSelected}"
                                     Click="FinishTask_Click"/>
+                        </Border>
+
+                        <TextBlock Text="Komentar (opciono)"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   FontSize="12"
+                                   Margin="4,14,0,6"/>
+
+                        <Border Style="{StaticResource InputContainer}">
+                            <TextBox MinHeight="70"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Padding="10,8"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Text="{Binding CompletionComment, UpdateSourceTrigger=PropertyChanged}"/>
                         </Border>
 
                         <Border Background="#0A000000" CornerRadius="14" Padding="10" Margin="0,14,0,0">
@@ -213,7 +211,7 @@
             </Grid>
         </Grid>
 
-        <!-- LOGIN CARD -->
+        <!-- LOGIN CARD (ne menjam) -->
         <Border x:Name="LoginCard"
                 Width="340"
                 Padding="24"
@@ -281,6 +279,5 @@
                            TextAlignment="Center"/>
             </StackPanel>
         </Border>
-
     </Grid>
 </Window>
