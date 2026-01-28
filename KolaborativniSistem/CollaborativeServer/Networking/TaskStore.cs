@@ -11,8 +11,6 @@ namespace CollaborativeServer.Networking
         private readonly Dictionary<string, List<ZadatakProjekta>> _taskByManager = new();
         private readonly object _lock = new();
 
-        // ✅ Redosled statusa po specifikaciji:
-        // UToku (vrh), NaCekanju (sredina), Zavrsen (dno)
         private static int StatusRank(StatusZadatka s) => s switch
         {
             StatusZadatka.UToku => 0,
@@ -34,7 +32,6 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // Dodavanje zadatka
         public void AddTask(string managerUsername, ZadatakProjekta task)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
@@ -50,7 +47,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // vraca sve zadatke kojima je status "U Toku" (za managera)
+     
         public List<ZadatakProjekta> GetInProgressTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -88,8 +85,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // ✅ ZAPOSLENI: vrati zadatke + manager username
-        // ✅ Sortiranje po status grupama + unutar grupe po prioritetu (1 = najveći prioritet)
+      
         public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {
             if (string.IsNullOrWhiteSpace(employeeUsername))
@@ -101,15 +97,15 @@ namespace CollaborativeServer.Networking
                     .SelectMany(kvp => kvp.Value
                         .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
                         .Select(t => (ManagerUsername: kvp.Key, Task: t)))
-                    .OrderBy(x => StatusRank(x.Task.Status)) // UToku -> NaCekanju -> Zavrsen
-                    .ThenBy(x => x.Task.Prioritet)          // ✅ unutar statusa po prioritetu
+                    .OrderBy(x => StatusRank(x.Task.Status)) 
+                    .ThenBy(x => x.Task.Prioritet)          
                     .ThenBy(x => x.Task.Rok)
                     .ThenBy(x => x.Task.Naziv, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
 
-        // Promena statusa zadatka po nazivu (TAKE)
+        
         public bool TrySetStatus(string taskName, StatusZadatka newStatus)
         {
             if (string.IsNullOrWhiteSpace(taskName))
@@ -132,7 +128,7 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // ✅ Završavanje + komentar (DONE)
+       
         public bool TryCompleteTask(string taskName, string? comment)
         {
             if (string.IsNullOrWhiteSpace(taskName))
@@ -190,7 +186,6 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // Manager prikaz (ostaje kako je bilo)
         public List<ZadatakProjekta> GetAllTasksForManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -221,6 +216,20 @@ namespace CollaborativeServer.Networking
             }
         }
 
+        private static string SanitizeComment(string? comment)
+        {
+            if (string.IsNullOrWhiteSpace(comment)) return "";
+
+           
+            return comment
+                .Replace("|", " ")
+                .Replace(";", " ")
+                .Replace("\r", " ")
+                .Replace("\n", " ")
+                .Trim();
+        }
+
+       
         public string GetAllTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -246,7 +255,9 @@ namespace CollaborativeServer.Networking
                     if (sb.Length > 0)
                         sb.Append(";");
 
-                    sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}");
+                    string komentar = SanitizeComment(t.Komentar);
+
+                    sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}|{komentar}");
                 }
 
                 return sb.ToString();

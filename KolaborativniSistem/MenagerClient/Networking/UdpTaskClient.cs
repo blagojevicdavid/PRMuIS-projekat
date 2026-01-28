@@ -18,7 +18,7 @@ namespace ManagerClient.Networking
 
             var remote = new IPEndPoint(IPAddress.Parse(serverIp), udpPort);
 
-            string req = ProtocolConstants.UdpAllTasksPrefix + managerUsername; 
+            string req = ProtocolConstants.UdpAllTasksPrefix + managerUsername;
             socket.SendTo(Encoding.UTF8.GetBytes(req), remote);
 
             var buffer = new byte[8192];
@@ -36,15 +36,14 @@ namespace ManagerClient.Networking
 
             var result = new List<ZadatakProjekta>();
 
-            // parsiranje
-            // separato izmedju zadataka je ';'
             var taskStrings = payload.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var taskStr in taskStrings)
             {
-                //separator je '|'
+                // separator je '|'
                 var parts = taskStr.Split('|');
-                if (parts.Length != 5) continue;
+
+                if (parts.Length != 5 && parts.Length != 6) continue;
 
                 string naziv = parts[0].Trim();
                 string zaposleni = parts[1].Trim();
@@ -53,13 +52,16 @@ namespace ManagerClient.Networking
                 if (!int.TryParse(parts[3].Trim(), out var prioritet)) continue;
                 if (!int.TryParse(parts[4].Trim(), out var st)) continue;
 
+                string komentar = parts.Length == 6 ? (parts[5] ?? "").Trim() : "";
+
                 result.Add(new ZadatakProjekta
                 {
                     Naziv = naziv,
                     Zaposleni = zaposleni,
                     Rok = rok,
                     Prioritet = prioritet,
-                    Status = (StatusZadatka)st
+                    Status = (StatusZadatka)st,
+                    Komentar = komentar
                 });
             }
 

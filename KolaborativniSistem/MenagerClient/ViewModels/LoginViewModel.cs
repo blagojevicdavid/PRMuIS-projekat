@@ -1,62 +1,43 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
 
-namespace ManagerClient.ViewModels;
 using Shared.Models;
+
+namespace ManagerClient.ViewModels;
 
 public sealed class LoginViewModel : INotifyPropertyChanged
 {
     private string _serverIp = "127.0.0.1";
     private int _udpPort = 50032;
     private string _username = ManagerClient.Properties.Settings.Default.LastManagerUsername ?? "";
+
     public ObservableCollection<ZadatakProjekta> ActiveTasks { get; } = new ObservableCollection<ZadatakProjekta>();
 
     public string ServerIp
     {
         get => _serverIp;
-        set
-        {
-            _serverIp = value;
-            OnPropertyChanged();
-        }
+        set { _serverIp = value; OnPropertyChanged(); }
     }
 
     public int UdpPort
     {
         get => _udpPort;
-        set
-        {
-            _udpPort = value;
-            OnPropertyChanged();
-        }
+        set { _udpPort = value; OnPropertyChanged(); }
     }
 
     public string Username
     {
         get => _username;
-        set
-        {
-            _username = value;
-            OnPropertyChanged();
-        }
+        set { _username = value; OnPropertyChanged(); }
     }
 
     private string _newTaskName = "";
     public string NewTaskName
     {
         get => _newTaskName;
-        set
-        {
-            _newTaskName = value;
-            OnPropertyChanged();
-        }
+        set { _newTaskName = value; OnPropertyChanged(); }
     }
 
     private string _newTaskEmployee = "";
@@ -87,9 +68,20 @@ public sealed class LoginViewModel : INotifyPropertyChanged
         set
         {
             _selectedTask = value;
-            SelectedTaskName = value?.Naziv; //pamti kljuc zbog refresha
+
+            SelectedTaskName = value?.Naziv;
+
+            SelectedTaskComment = value?.Komentar ?? "";
+
             OnPropertyChanged();
         }
+    }
+
+    private string _selectedTaskComment = "";
+    public string SelectedTaskComment
+    {
+        get => _selectedTaskComment;
+        set { _selectedTaskComment = value; OnPropertyChanged(); }
     }
 
     private int _newPriorityValue = 1;
@@ -106,12 +98,22 @@ public sealed class LoginViewModel : INotifyPropertyChanged
         set { _selectedTaskName = value; OnPropertyChanged(); }
     }
 
+    private string _connectionStatus = "";
+    public string ConnectionStatus
+    {
+        get => _connectionStatus;
+        set { _connectionStatus = value; OnPropertyChanged(); }
+    }
 
+    private string _formHint = "";
+    public string FormHint
+    {
+        get => _formHint;
+        set { _formHint = value; OnPropertyChanged(); }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

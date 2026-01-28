@@ -91,13 +91,8 @@
                             <TextBlock Text="{Binding ConnectionStatus}" Foreground="{StaticResource MutedTextBrush}" FontSize="12"/>
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-<!--
-                        <Border Background="#1A4F8CFF" CornerRadius="14" Height="36" Padding="14,0" Margin="0,0,10,0">
-                            <Button Style="{StaticResource FlatButton}" Content="Osveži" Foreground="#FF4F8CFF"/>
-                        </Border>
-                    -->
 
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Background="{StaticResource AccentBrush}" CornerRadius="14" Height="36" Padding="14,0">
                             <Button Style="{StaticResource FlatButton}" Content="Odjava" Foreground="White" Click="Logout_Click"/>
                         </Border>
@@ -165,6 +160,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
+                            <!-- komentar -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- dugmad -->
                         </Grid.RowDefinitions>
 
                         <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -177,11 +175,6 @@
                                 <TextBlock Text="Aktivni zadaci" FontSize="16" FontWeight="SemiBold"/>
                                 <TextBlock Text="Zadaci koji su u toku" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
-                            <!-- Manuelni refresh
-                            <Border Grid.Column="1" Background="#1A4F8CFF" CornerRadius="14" Height="34" Padding="12,0" VerticalAlignment="Center">
-                                <Button Style="{StaticResource FlatButton}" Content="UDP zahtev" Foreground="#FF4F8CFF"/>
-                            </Border>
-                            -->
                         </Grid>
 
                         <DataGrid Grid.Row="1"
@@ -198,7 +191,6 @@
                             <DataGrid.RowStyle>
                                 <Style TargetType="DataGridRow">
                                     <Style.Triggers>
-
                                         <DataTrigger Value="True">
                                             <DataTrigger.Binding>
                                                 <MultiBinding Converter="{StaticResource NearDeadlineConverter}">
@@ -206,11 +198,8 @@
                                                     <Binding Path="Status"/>
                                                 </MultiBinding>
                                             </DataTrigger.Binding>
-
-                                            
                                             <Setter Property="Background" Value="#40FFA500"/>
                                         </DataTrigger>
-
                                     </Style.Triggers>
                                 </Style>
                             </DataGrid.RowStyle>
@@ -224,8 +213,24 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
+                        <!-- ✅ Komentar selektovanog zadatka -->
+                        <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                            <TextBlock Text="Komentar (za selektovani zadatak)" FontSize="12"
+                                       Foreground="{StaticResource MutedTextBrush}" Margin="4,0,0,3"/>
+                            <Border Style="{StaticResource InputContainer}">
+                                <TextBox Text="{Binding SelectedTaskComment}"
+                                         MinHeight="54"
+                                         Padding="12,8"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         IsReadOnly="True"
+                                         TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto"/>
+                            </Border>
+                        </StackPanel>
+
                         <!-- Povećanje prioriteta -->
-                        <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <Grid Grid.Row="3" Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="160"/>
                                 <ColumnDefinition Width="*"/>
@@ -245,7 +250,7 @@
             </Grid>
         </Grid>
 
-        <!-- LOGIN CARD (na istoj root grid) -->
+        <!-- LOGIN CARD -->
         <Border x:Name="LoginCard"
                 Width="340"
                 Padding="24"
