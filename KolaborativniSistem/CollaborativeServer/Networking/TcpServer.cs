@@ -6,6 +6,7 @@ using System.Text;
 using CollaborativeServer.Core;
 using Shared.Models;
 using Shared.Protocol;
+using System.Text.Json;
 
 namespace CollaborativeServer.Networking
 {
@@ -125,45 +126,36 @@ namespace CollaborativeServer.Networking
 
             if (message.StartsWith(ProtocolConstants.TcpSendPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                var payload = message.Substring(ProtocolConstants.TcpSendPrefix.Length);
-                var parts = payload.Split('|');
+                var json = message.Substring(ProtocolConstants.TcpSendPrefix.Length).Trim();
 
-                if (parts.Length != 4)
+                ZadatakProjekta? task;
+                try
+                {
+                    task = JsonSerializer.Deserialize<ZadatakProjekta>(json);
+                }
+                catch
                 {
                     SendLine(client, "ERR_SEND_FORMAT");
                     return true;
                 }
 
-                string naziv = parts[0].Trim();
-                string zaposleni = parts[1].Trim();
-
-                if (!DateTime.TryParse(parts[2].Trim(), out var rok))
+                if (task == null || string.IsNullOrWhiteSpace(task.Naziv) || string.IsNullOrWhiteSpace(task.Zaposleni))
                 {
-                    SendLine(client, "ERR_BAD_DATE");
+                    SendLine(client, "ERR_SEND_FORMAT");
                     return true;
                 }
 
-                if (!int.TryParse(parts[3].Trim(), out var prioritet))
-                {
-                    SendLine(client, "ERR_BAD_PRIORITY");
-                    return true;
-                }
-
-                var task = new ZadatakProjekta
-                {
-                    Naziv = naziv,
-                    Zaposleni = zaposleni,
-                    Rok = rok,
-                    Prioritet = prioritet,
-                    Status = StatusZadatka.NaCekanju,
-                    Komentar = ""
-                };
+                task.Naziv = task.Naziv.Trim();
+                task.Zaposleni = task.Zaposleni.Trim();
+                task.Status = StatusZadatka.NaCekanju;
+                task.Komentar ??= string.Empty;
 
                 _store.AddTask(managerUsername, task);
 
                 SendLine(client, "OK");
                 return true;
             }
+
 
             int idx = message.LastIndexOf(':');
             if (idx > 0)

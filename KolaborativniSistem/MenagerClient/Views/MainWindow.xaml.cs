@@ -11,6 +11,8 @@ using System.Windows.Shapes;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using System;
+using Shared.Models;
+using System.Text.Json;
 
 
 using ManagerClient.ViewModels;
@@ -113,7 +115,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        string msg = ProtocolConstants.TcpSendPrefix + $"{vm.NewTaskName}|{vm.NewTaskEmployee}|{vm.NewTaskDueDate:yyyy-MM-dd}|{vm.NewTaskPriority}";
+        var task = new ZadatakProjekta
+        {
+            Naziv = vm.NewTaskName,
+            Zaposleni = vm.NewTaskEmployee,
+            Rok = vm.NewTaskDueDate,
+            Prioritet = vm.NewTaskPriority,
+            Status = StatusZadatka.NaCekanju,
+            Komentar = ""
+        };
+
+        string json = JsonSerializer.Serialize(task);
+        string msg = ProtocolConstants.TcpSendPrefix + json;
+
         try
         {
             _tcpLoginClient.SendLine(msg);
