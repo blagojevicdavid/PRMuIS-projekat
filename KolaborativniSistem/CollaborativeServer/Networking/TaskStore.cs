@@ -47,7 +47,6 @@ namespace CollaborativeServer.Networking
             }
         }
 
-     
         public List<ZadatakProjekta> GetInProgressTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -64,7 +63,6 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        // povećanje prioriteta
         public bool TryIncreasePriority(string managerUsername, string taskName, int newPriority)
         {
             if (string.IsNullOrWhiteSpace(managerUsername) || string.IsNullOrWhiteSpace(taskName))
@@ -85,7 +83,6 @@ namespace CollaborativeServer.Networking
             }
         }
 
-      
         public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {
             if (string.IsNullOrWhiteSpace(employeeUsername))
@@ -97,17 +94,18 @@ namespace CollaborativeServer.Networking
                     .SelectMany(kvp => kvp.Value
                         .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
                         .Select(t => (ManagerUsername: kvp.Key, Task: t)))
-                    .OrderBy(x => StatusRank(x.Task.Status)) 
-                    .ThenBy(x => x.Task.Prioritet)          
+                    .OrderBy(x => StatusRank(x.Task.Status))
+                    .ThenBy(x => x.Task.Prioritet)
                     .ThenBy(x => x.Task.Rok)
                     .ThenBy(x => x.Task.Naziv, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
 
-        
-        public bool TrySetStatus(string taskName, StatusZadatka newStatus)
+        public bool TrySetStatus(string taskName, StatusZadatka newStatus, out StatusZadatka oldStatus)
         {
+            oldStatus = default;
+
             if (string.IsNullOrWhiteSpace(taskName))
                 return false;
 
@@ -120,6 +118,7 @@ namespace CollaborativeServer.Networking
 
                     if (t == null) continue;
 
+                    oldStatus = t.Status;
                     t.Status = newStatus;
                     return true;
                 }
@@ -128,9 +127,15 @@ namespace CollaborativeServer.Networking
             }
         }
 
-       
-        public bool TryCompleteTask(string taskName, string? comment)
+        public bool TrySetStatus(string taskName, StatusZadatka newStatus)
         {
+            return TrySetStatus(taskName, newStatus, out _);
+        }
+
+        public bool TryCompleteTask(string taskName, string? comment, out StatusZadatka oldStatus)
+        {
+            oldStatus = default;
+
             if (string.IsNullOrWhiteSpace(taskName))
                 return false;
 
@@ -143,6 +148,7 @@ namespace CollaborativeServer.Networking
 
                     if (t == null) continue;
 
+                    oldStatus = t.Status;
                     t.Status = StatusZadatka.Zavrsen;
                     t.Komentar = (comment ?? "").Trim();
                     return true;
@@ -150,6 +156,11 @@ namespace CollaborativeServer.Networking
 
                 return false;
             }
+        }
+
+        public bool TryCompleteTask(string taskName, string? comment)
+        {
+            return TryCompleteTask(taskName, comment, out _);
         }
 
         public void DebugPrint()
@@ -220,7 +231,6 @@ namespace CollaborativeServer.Networking
         {
             if (string.IsNullOrWhiteSpace(comment)) return "";
 
-           
             return comment
                 .Replace("|", " ")
                 .Replace(";", " ")
@@ -229,7 +239,6 @@ namespace CollaborativeServer.Networking
                 .Trim();
         }
 
-       
         public string GetAllTasks(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))

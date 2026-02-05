@@ -14,7 +14,6 @@ namespace ManagerClient.Networking
 
         public bool IsConnected => _sock != null && _sock.Connected;
 
-        // async wrapper da ne blokira ui
         public Task ConnectAndIdentifyAsync(string serverIp, int tcpPort, string username, CancellationToken ct = default)
             => Task.Run(() => ConnectAndIdentify(serverIp, tcpPort, username), ct);
 
@@ -25,14 +24,13 @@ namespace ManagerClient.Networking
             var ip = IPAddress.Parse(serverIp);
             _sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-            // da ne visi zauvek
             _sock.ReceiveTimeout = 5000;
             _sock.SendTimeout = 5000;
 
             _sock.Connect(new IPEndPoint(ip, tcpPort));
 
-            // identifikacija
-            var msg = ProtocolConstants.UdpLoginManagerPrefix + username + "\n"; //UdpLoginEmployeePrefix
+            
+            var msg = ProtocolConstants.UdpLoginManagerPrefix + username + "\n"; 
             var data = Encoding.UTF8.GetBytes(msg);
             _sock.Send(data);
 

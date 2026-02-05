@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
 using EmployeeClient.Networking;
 using EmployeeClient.ViewModels;
-using Shared.Protocol;
 using Shared.Models;
 
 namespace EmployeeClient.Views;
@@ -121,14 +121,25 @@ public partial class MainWindow : Window
 
         _isRefreshing = true;
 
-        
         string? selectedNaziv = dash.SelectedTask?.Naziv;
 
         try
         {
-            var reply = _tcpLoginClient.SendAndReceive("LIST\n");
+            // ✅ JSON LIST request
+            var req = new
+            {
+                type = "employee_list"
+            };
 
-            if (string.IsNullOrWhiteSpace(reply) || reply == "NO_TASKS")
+            var reply = _tcpLoginClient.SendJsonAndReceive(req);
+
+            // 1) probaj JSON reply
+            var parsed = TryParseTasksFromJsonReply(reply);
+
+            // 2) fallback na legacy
+            parsed ??= ParseTasksFromLegacyReply(reply);
+
+            if (parsed == null || parsed.Count == 0)
             {
                 dash.AssignedTasks.Clear();
                 dash.SelectedTask = null;
@@ -137,29 +148,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var parsed = new List<TaskRow>();
-
-            var items = reply.Split('^').Select(x => x.Trim()).Where(x => x.Length > 0);
-            foreach (var item in items)
-            {
-                var p = item.Split('|');
-                if (p.Length < 5) continue;
-
-                var statusStr = p[4].Trim();
-                if (!Enum.TryParse<StatusZadatka>(statusStr, true, out var status))
-                    status = StatusZadatka.NaCekanju;
-
-                parsed.Add(new TaskRow
-                {
-                    Naziv = p[0].Trim(),
-                    Menadzer = p[1].Trim(),
-                    Rok = p[2].Trim(),
-                    Prioritet = p[3].Trim(),
-                    Status = status
-                });
-            }
-
-            
             parsed = parsed
                 .OrderBy(t => StatusRank(t.Status))
                 .ThenBy(t => int.TryParse(t.Prioritet, out var pr) ? pr : int.MaxValue)
@@ -171,7 +159,6 @@ public partial class MainWindow : Window
             foreach (var t in parsed)
                 dash.AssignedTasks.Add(t);
 
-           
             if (!string.IsNullOrWhiteSpace(selectedNaziv))
                 dash.SelectedTask = dash.AssignedTasks.FirstOrDefault(x => x.Naziv == selectedNaziv);
 
@@ -186,6 +173,109 @@ public partial class MainWindow : Window
         {
             _isRefreshing = false;
         }
+    }
+
+    private static List<TaskRow>? TryParseTasksFromJsonReply(string reply)
+    {
+        var trimmed = (reply ?? "").Trim();
+        if (trimmed.Length == 0) return null;
+        if (!trimmed.StartsWith("{") && !trimmed.StartsWith("[")) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+
+            // ako server vrati direktno niz taskova
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                return doc.RootElement.EnumerateArray()
+                    .Select(ReadTaskRowFromJson)
+                    .Where(x => x != null)
+                    .Cast<TaskRow>()
+                    .ToList();
+            }
+
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            if (!doc.RootElement.TryGetProperty("tasks", out var tasksEl))
+                return null;
+
+            if (tasksEl.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var list = new List<TaskRow>();
+            foreach (var el in tasksEl.EnumerateArray())
+            {
+                var row = ReadTaskRowFromJson(el);
+                if (row != null) list.Add(row);
+            }
+
+            return list;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static TaskRow? ReadTaskRowFromJson(JsonElement el)
+    {
+        try
+        {
+            string naziv = el.TryGetProperty("naziv", out var n) ? (n.GetString() ?? "") : "";
+            string menadzer = el.TryGetProperty("menadzer", out var m) ? (m.GetString() ?? "") : "";
+            string rok = el.TryGetProperty("rok", out var r) ? (r.GetString() ?? "") : "";
+            string prioritet = el.TryGetProperty("prioritet", out var p) ? (p.GetString() ?? "") : "";
+
+            string statusStr = el.TryGetProperty("status", out var s) ? (s.GetString() ?? "") : "";
+            if (!Enum.TryParse<StatusZadatka>(statusStr, true, out var status))
+                status = StatusZadatka.NaCekanju;
+
+            return new TaskRow
+            {
+                Naziv = naziv.Trim(),
+                Menadzer = menadzer.Trim(),
+                Rok = rok.Trim(),
+                Prioritet = prioritet.Trim(),
+                Status = status
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // stari format: "naziv|menadzer|rok|prioritet|status^..."
+    private static List<TaskRow>? ParseTasksFromLegacyReply(string reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply) || reply == "NO_TASKS")
+            return new List<TaskRow>();
+
+        var parsed = new List<TaskRow>();
+
+        var items = reply.Split('^').Select(x => x.Trim()).Where(x => x.Length > 0);
+        foreach (var item in items)
+        {
+            var p = item.Split('|');
+            if (p.Length < 5) continue;
+
+            var statusStr = p[4].Trim();
+            if (!Enum.TryParse<StatusZadatka>(statusStr, true, out var status))
+                status = StatusZadatka.NaCekanju;
+
+            parsed.Add(new TaskRow
+            {
+                Naziv = p[0].Trim(),
+                Menadzer = p[1].Trim(),
+                Rok = p[2].Trim(),
+                Prioritet = p[3].Trim(),
+                Status = status
+            });
+        }
+
+        return parsed;
     }
 
     private void StartTask_Click(object sender, RoutedEventArgs e)
@@ -207,10 +297,17 @@ public partial class MainWindow : Window
 
         try
         {
-            var reply = _tcpLoginClient.SendAndReceive($"{ProtocolConstants.TcpTakePrefix}{dash.SelectedTask.Naziv}\n");
+            // ✅ JSON TAKE
+            var req = new
+            {
+                type = "employee_action",
+                action = "take",
+                taskName = dash.SelectedTask.Naziv
+            };
+
+            var reply = _tcpLoginClient.SendJsonAndReceive(req);
             dash.FormHint = reply;
 
-           
             RefreshTasks();
         }
         catch (Exception ex)
@@ -238,15 +335,18 @@ public partial class MainWindow : Window
 
         try
         {
-            string taskName = dash.SelectedTask.Naziv;
             string comment = (dash.CompletionComment ?? "").Trim();
 
-            
-            string msg = string.IsNullOrWhiteSpace(comment)
-                ? $"{ProtocolConstants.TcpDonePrefix}{taskName}\n"
-                : $"{ProtocolConstants.TcpDonePrefix}{taskName}|{comment}\n";
+            // ✅ JSON FINISH (komentar optional)
+            var req = new
+            {
+                type = "employee_action",
+                action = "finish",
+                taskName = dash.SelectedTask.Naziv,
+                comment = string.IsNullOrWhiteSpace(comment) ? null : comment
+            };
 
-            var reply = _tcpLoginClient.SendAndReceive(msg);
+            var reply = _tcpLoginClient.SendJsonAndReceive(req);
             dash.FormHint = reply;
 
             if (reply.Trim().Equals("OK", StringComparison.OrdinalIgnoreCase))
