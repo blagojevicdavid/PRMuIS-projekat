@@ -2,10 +2,11 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-
+using System.Text.Json;
 using Shared.Protocol;
 using Shared.Logging;
 using System.Collections.Generic;
+using System.Web;
 using System.Security.Cryptography;
 
 namespace CollaborativeServer.Networking
@@ -30,18 +31,29 @@ namespace CollaborativeServer.Networking
             Console.WriteLine($"[UDP] Listening on {bindIp}:{udpPort}");
             AuditLogger.Info($"UDP start {bindIp}:{udpPort}");
 
-            var buffer = new byte[1024];
+            var buffer = new byte[65507];
             EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
 
             while (true)
             {
-                int received = socket.ReceiveFrom(buffer, ref remote);
-                string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
+                try
+                {
+                    int received = socket.ReceiveFrom(buffer, ref remote);
+                    string message = Encoding.UTF8.GetString(buffer, 0, received).Trim();
 
-                string response = HandleMessage(message, tcpPort, remote?.ToString());
+                    string response = HandleMessage(message, tcpPort, remote?.ToString());
 
-                byte[] responseBytes = Encoding.UTF8.GetBytes(response);
-                socket.SendTo(responseBytes, remote);
+                    byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                    socket.SendTo(responseBytes, remote);
+                }
+                catch (SocketException ex)
+                {
+                    AuditLogger.Warn($"UDP SocketException: {ex.SocketErrorCode} {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    AuditLogger.Warn($"UDP error: {ex.Message}");
+                }
             }
         }
 
@@ -71,38 +83,73 @@ namespace CollaborativeServer.Networking
             {
                 string username = message.Substring(ProtocolConstants.UdpAllTasksPrefix.Length).Trim();
 
-                string allTasks = _store.GetAllTasks(username);
-                MaybeLogAllTasks(username, allTasks);
+                var tasks = _store.GetAllTasksForManager(username);
+                string json = JsonSerializer.Serialize(tasks);
 
-                return $"{ProtocolConstants.UdpTaskPrefix}{allTasks}";
+                MaybeLogAllTasks(username, json, tasks.Count);
+                return $"{ProtocolConstants.UdpTaskPrefix}{json}";
             }
 
-            
+            if (message.StartsWith(ProtocolConstants.UdpChangePriorityPrefix))
+            {
+                // PRIORITY:manager:taskNameEncoded:newPriority
+                string rest = message.Substring(ProtocolConstants.UdpChangePriorityPrefix.Length);
+
+                // 3 dijela odvojena sa :
+                var parts = rest.Split(':', 3, StringSplitOptions.None);
+                if (parts.Length != 3)
+                    return $"{ProtocolConstants.UdpErrPrefix}BAD_FORMAT";
+
+                string manager = parts[0].Trim();
+                string taskNameEncoded = parts[1].Trim();
+                string priorityStr = parts[2].Trim();
+
+                string taskName;
+                try
+                {
+                    taskName = Uri.UnescapeDataString(taskNameEncoded);
+                }
+                catch
+                {
+                    return $"{ProtocolConstants.UdpErrPrefix}BAD_TASKNAME";
+                }
+
+                if (!int.TryParse(priorityStr, out int newPriority))
+                    return $"{ProtocolConstants.UdpErrPrefix}BAD_PRIORITY";
+
+                
+                if (newPriority < 1) newPriority = 1;
+                    bool ok = _store.TryChangeTaskPriority(manager, taskName, newPriority);
+
+                if (!ok)
+                    return $"{ProtocolConstants.UdpErrPrefix}NOT_FOUND";
+
+                AuditLogger.Info($"PRIORITY changed (UDP): manager={manager}, task={taskName}, new={newPriority} ({remoteEndpoint})");
+                return ProtocolConstants.UdpOk;
+            }
+
+
+
+
             AuditLogger.Warn($"UDP unknown msg from {remoteEndpoint}: {message}");
             return "ERROR";
         }
 
-        private void MaybeLogAllTasks(string manager, string allTasks)
+        private void MaybeLogAllTasks(string manager, string payload, int count)
         {
-            string sig = Hash(allTasks ?? "");
+            string sig = Hash(payload ?? "");
 
             lock (_sigLock)
             {
                 if (_lastAllTasksSig.TryGetValue(manager, out var last) && last == sig)
-                    return; 
+                    return;
 
                 _lastAllTasksSig[manager] = sig;
             }
 
-           
-            int count = 0;
-            if (!string.IsNullOrWhiteSpace(allTasks))
-            {
-                count = allTasks.Split(';', StringSplitOptions.RemoveEmptyEntries).Length;
-            }
-
             AuditLogger.Info($"MANAGER ALL TASKS changed (UDP): {manager} (count={count})");
         }
+
 
         private static string Hash(string s)
         {

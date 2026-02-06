@@ -20,6 +20,11 @@ namespace Shared.Protocol
         public const string UdpAllTasksPrefix = "SVI:";
         public const string UdpTaskPrefix = "TASKS:";
 
+        public const string UdpChangePriorityPrefix = "PRIORITY:";
+        public const string UdpOk = "OK";
+        public const string UdpErrPrefix = "ERR:";
+
+
 
     }
 }

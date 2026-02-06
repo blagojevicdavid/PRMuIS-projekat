@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-
+using System.Text.Json;
 using Shared.Models;
 using Shared.Protocol;
 
@@ -21,7 +21,7 @@ namespace ManagerClient.Networking
             string req = ProtocolConstants.UdpAllTasksPrefix + managerUsername;
             socket.SendTo(Encoding.UTF8.GetBytes(req), remote);
 
-            var buffer = new byte[8192];
+            var buffer = new byte[65507]; // buffer podesen na maksimalnu velicinu UDP payload-a
             EndPoint from = new IPEndPoint(IPAddress.Any, 0);
 
             int received = socket.ReceiveFrom(buffer, ref from);
@@ -30,42 +30,57 @@ namespace ManagerClient.Networking
             if (!resp.StartsWith(ProtocolConstants.UdpTaskPrefix))
                 return new List<ZadatakProjekta>();
 
-            string payload = resp.Substring(ProtocolConstants.UdpTaskPrefix.Length);
+            string payload = resp.Substring(ProtocolConstants.UdpTaskPrefix.Length).Trim();
             if (string.IsNullOrWhiteSpace(payload))
                 return new List<ZadatakProjekta>();
 
-            var result = new List<ZadatakProjekta>();
-
-            var taskStrings = payload.Split(';', StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var taskStr in taskStrings)
+            //prebaceno na JSON
+            try
             {
-                // separator je '|'
-                var parts = taskStr.Split('|');
+                var tasks = JsonSerializer.Deserialize<List<ZadatakProjekta>>(payload);
+                return tasks ?? new List<ZadatakProjekta>();
+            }
+            catch (JsonException)
+            {
+                //ako server vrati nevalidan JSON
+                return new List<ZadatakProjekta>();
+            }
+        }
 
-                if (parts.Length != 5 && parts.Length != 6) continue;
+        public static bool ChangePriority(string serverIp, int udpPort, string managerUsername, string taskName, int newPriority)
+        {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.ReceiveTimeout = 1500;
 
-                string naziv = parts[0].Trim();
-                string zaposleni = parts[1].Trim();
+            var remote = new IPEndPoint(IPAddress.Parse(serverIp), udpPort);
 
-                if (!DateTime.TryParse(parts[2].Trim(), out var rok)) continue;
-                if (!int.TryParse(parts[3].Trim(), out var prioritet)) continue;
-                if (!int.TryParse(parts[4].Trim(), out var st)) continue;
+            string safeName = Uri.EscapeDataString(taskName ?? "");
+            string req = $"{ProtocolConstants.UdpChangePriorityPrefix}{managerUsername}:{safeName}:{newPriority}";
 
-                string komentar = parts.Length == 6 ? (parts[5] ?? "").Trim() : "";
-
-                result.Add(new ZadatakProjekta
+            // retry 2 puta
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
                 {
-                    Naziv = naziv,
-                    Zaposleni = zaposleni,
-                    Rok = rok,
-                    Prioritet = prioritet,
-                    Status = (StatusZadatka)st,
-                    Komentar = komentar
-                });
+                    socket.SendTo(Encoding.UTF8.GetBytes(req), remote);
+
+                    var buffer = new byte[2048];
+                    EndPoint from = new IPEndPoint(IPAddress.Any, 0);
+                    int received = socket.ReceiveFrom(buffer, ref from);
+
+                    string resp = Encoding.UTF8.GetString(buffer, 0, received).Trim();
+                    if (resp == ProtocolConstants.UdpOk)
+                        return true;
+
+                    return false;
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
+                {
+                }
             }
 
-            return result;
+            return false;
         }
+
     }
 }

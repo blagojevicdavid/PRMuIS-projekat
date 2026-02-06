@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Shared.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Shared.Models;
+using System.Threading.Tasks;
 
 namespace CollaborativeServer.Networking
 {
@@ -63,25 +64,19 @@ namespace CollaborativeServer.Networking
             }
         }
 
-        public bool TryIncreasePriority(string managerUsername, string taskName, int newPriority)
+        public bool TryChangeTaskPriority(string managerUsername, string taskName, int newPriority)
         {
-            if (string.IsNullOrWhiteSpace(managerUsername) || string.IsNullOrWhiteSpace(taskName))
+            if (!_taskByManager.TryGetValue(managerUsername, out var list))
                 return false;
 
-            lock (_lock)
-            {
-                if (!_taskByManager.TryGetValue(managerUsername, out var list))
-                    return false;
+            var task = list.Find(t => string.Equals(t.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
+            if (task == null)
+                return false;
 
-                var t = list.FirstOrDefault(x =>
-                    string.Equals(x.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
-
-                if (t == null) return false;
-
-                t.Prioritet = newPriority;
-                return true;
-            }
+            task.Prioritet = newPriority;
+            return true;
         }
+
 
         public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {

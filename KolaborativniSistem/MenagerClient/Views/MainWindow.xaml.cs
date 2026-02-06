@@ -222,7 +222,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) 
         {
-            //iskljuciti nako debagovanja
+            //iskljuciti nakon debagovanja
          //MessageBox.Show(ex.Message, "Auto refresh UDP error"); 
         }
     }
@@ -230,10 +230,9 @@ public partial class MainWindow : Window
     private void IncreasePriority_Click(object sender, RoutedEventArgs e) => ChangePriorityBy(+1);
     private void DecreasePriority_Click(object sender, RoutedEventArgs e) => ChangePriorityBy(-1);
 
-    private void ChangePriorityBy(int delta)
+    private async void ChangePriorityBy(int delta)
     {
         if (DataContext is not LoginViewModel vm) return;
-        if (!_tcpLoginClient.IsConnected) { MessageBox.Show("Nema konekcije sa serverom!"); return; }
         if (vm.SelectedTask is null) { MessageBox.Show("Izaberi zadatak u tabeli."); return; }
 
         int next = vm.SelectedTask.Prioritet + delta;
@@ -241,10 +240,40 @@ public partial class MainWindow : Window
         if (next > 5) next = 5;
 
         if (next == vm.SelectedTask.Prioritet) return;
+        bool ok;
+        try
+        {
+            ok = ManagerClient.Networking.UdpTasksClient.ChangePriority(
+                vm.ServerIp,
+                vm.UdpPort,
+                vm.Username,
+                vm.SelectedTask.Naziv,
+                next
+            );
+        }
+        catch (Exception ex)
+        {
+            //MessageBox.Show($"Greška pri slanju UDP zahteva: {ex.Message}");
+            return;
+        }
 
-        _tcpLoginClient.SendLine($"{vm.SelectedTask.Naziv}:{next}");
-        vm.SelectedTask.Prioritet = next; 
+        if (!ok)
+        {
+            //MessageBox.Show("Server nije prihvatio promenu prioriteta (UDP). Osvežavam stanje...");
+            try
+            {
+                await RefreshAllTaskAsync();
+            }
+            catch
+            {
+            }
+
+            return;
+        }
+        // potvrda servera
+        vm.SelectedTask.Prioritet = next;
     }
+
 
     protected override void OnClosed(EventArgs e)
     {

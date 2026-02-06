@@ -30,6 +30,7 @@ namespace CollaborativeServer.Networking
             var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listener.Bind(new IPEndPoint(IPAddress.Parse(bindIp), tcpPort));
             listener.Listen(10);
+            listener.Blocking = false;
 
             Console.WriteLine($"[TCP] Listening on {bindIp}:{tcpPort}");
             AuditLogger.Info($"TCP start {bindIp}:{tcpPort}");
@@ -38,24 +39,35 @@ namespace CollaborativeServer.Networking
 
             while (true)
             {
-                var readList = new List<Socket>(clients) { listener };
-                Socket.Select(readList, null, null, 1_000_000);
-
-                foreach (var socket in readList)
+                // poll listener
+                if (listener.Poll(1_000_000, SelectMode.SelectRead)) // 1s
                 {
-                    if (socket == listener)
+                    try
                     {
                         var client = listener.Accept();
+                        client.Blocking = false;
+
                         clients.Add(client);
                         _clients[client] = (false, ClientRole.Menadzer, "");
                         Console.WriteLine("[TCP] Client connected");
                     }
-                    else
+                    catch (SocketException)
+                    {
+                        //nema konekcije
+                    }
+                }
+
+                //poll klijente
+                for (int i = clients.Count - 1; i >= 0; i--)
+                {
+                    var socket = clients[i];
+
+                    if (socket.Poll(0, SelectMode.SelectRead))
                     {
                         if (!HandleClient(socket))
                         {
                             _clients.Remove(socket);
-                            clients.Remove(socket);
+                            clients.RemoveAt(i);
                             try { socket.Close(); } catch { }
                             Console.WriteLine("[TCP] Client disconnected");
                         }
@@ -63,6 +75,8 @@ namespace CollaborativeServer.Networking
                 }
             }
         }
+
+
 
         private bool HandleClient(Socket client)
         {
@@ -168,7 +182,7 @@ namespace CollaborativeServer.Networking
                 SendLine(client, "OK", "OK");
                 return true;
             }
-
+            /*
             int idx = message.LastIndexOf(':');
             if (idx > 0)
             {
@@ -188,7 +202,7 @@ namespace CollaborativeServer.Networking
                     return true;
                 }
             }
-
+            */
             SendLine(client, "ERR_UNKNOWN", "ERR_UNKNOWN");
             return true;
         }

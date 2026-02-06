@@ -1,10 +1,15 @@
-1. cuvanje login podataka
+1. cuvanje login podataka - ok ovako
+
 2. format tcp poruka/serialzacija
-3. id zadataka zbog duplih, ima li potrebe?
-4. Stavka 4 [nazivZadatka]:[novi prioriter], udp ili tcp?
-5. cuvanje podataka o taskovima, ima li potrebe da se cuva u fajl? u slucaju da se server ugasi
-6. server setup wizard?
-7. oznaka isteka roka?
-8. povecanje prioriteta samo za zadatke koji su na cekanju ili za sve?
-9. sedma tacka, da li mora pooling ili moze konkurentno
-10. oko zadnje tacke, komentar, realizacija ui
+
+3. id zadataka zbog duplih, ima li potrebe? Nema
+
+4. Stavka 4 [nazivZadatka]:[novi prioriter], udp ili tcp? UDP
+5. cuvanje podataka o taskovima, ima li potrebe da se cuva u fajl? u slucaju da se server ugasi - cuva se u jsnon ili txt
+
+6. server setup wizard? - nije postavljeno pitanje
+7. oznaka isteka roka? - uredno
+8. povecanje prioriteta samo za zadatke koji su na cekanju ili za sve? - po volji, uredno ovako
+9. sedma tacka, da li mora pooling ili moze konkurentno - odradti pooling
+10. oko zadnje tacke, komentar, realizacija ui - zavrseno
+
