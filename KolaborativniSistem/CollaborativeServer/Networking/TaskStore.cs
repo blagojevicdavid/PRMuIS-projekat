@@ -1,9 +1,11 @@
 ﻿using Shared.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CollaborativeServer.Networking
 {
@@ -11,6 +13,67 @@ namespace CollaborativeServer.Networking
     {
         private readonly Dictionary<string, List<ZadatakProjekta>> _taskByManager = new();
         private readonly object _lock = new();
+
+        private readonly string _filePath;
+
+        private static readonly JsonSerializerOptions JsonOpts = new()
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        public TaskStore(string? filePath = null)
+        {
+            _filePath = string.IsNullOrWhiteSpace(filePath)
+                ? Path.Combine(AppContext.BaseDirectory, "data", "tasks.json")
+                : filePath;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+            LoadFromDisk();
+        }
+
+
+        private void LoadFromDisk()
+        {
+            lock (_lock)
+            {
+                if (!File.Exists(_filePath))
+                    return;
+
+                try
+                {
+                    var json = File.ReadAllText(_filePath);
+                    if (string.IsNullOrWhiteSpace(json))
+                        return;
+
+                    var data = JsonSerializer.Deserialize<Dictionary<string, List<ZadatakProjekta>>>(json, JsonOpts);
+                    if (data == null)
+                        return;
+
+                    _taskByManager.Clear();
+                    foreach (var kvp in data)
+                        _taskByManager[kvp.Key] = kvp.Value ?? new List<ZadatakProjekta>();
+                }
+                catch
+                {
+                    
+                }
+            }
+        }
+
+        private void SaveToDisk()
+        {
+            lock (_lock)
+            {
+                var json = JsonSerializer.Serialize(_taskByManager, JsonOpts);
+
+                var tmp = _filePath + ".tmp";
+                File.WriteAllText(tmp, json);
+                File.Copy(tmp, _filePath, true);
+                File.Delete(tmp);
+            }
+        }
 
         private static int StatusRank(StatusZadatka s) => s switch
         {
@@ -20,7 +83,6 @@ namespace CollaborativeServer.Networking
             _ => 9
         };
 
-        // prijava menadzera
         public void EnsureManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
@@ -29,7 +91,10 @@ namespace CollaborativeServer.Networking
             lock (_lock)
             {
                 if (!_taskByManager.ContainsKey(managerUsername))
+                {
                     _taskByManager[managerUsername] = new List<ZadatakProjekta>();
+                    SaveToDisk();
+                }
             }
         }
 
@@ -45,92 +110,51 @@ namespace CollaborativeServer.Networking
 
                 task.Status = StatusZadatka.NaCekanju;
                 _taskByManager[managerUsername].Add(task);
-            }
-        }
 
-        public List<ZadatakProjekta> GetInProgressTasks(string managerUsername)
-        {
-            if (string.IsNullOrWhiteSpace(managerUsername))
-                return new List<ZadatakProjekta>();
-
-            lock (_lock)
-            {
-                if (!_taskByManager.TryGetValue(managerUsername, out var list))
-                    return new List<ZadatakProjekta>();
-
-                return list
-                    .Where(t => t.Status == StatusZadatka.UToku)
-                    .ToList();
+                SaveToDisk();
             }
         }
 
         public bool TryChangeTaskPriority(string managerUsername, string taskName, int newPriority)
         {
-            if (!_taskByManager.TryGetValue(managerUsername, out var list))
-                return false;
+            lock (_lock)
+            {
+                if (!_taskByManager.TryGetValue(managerUsername, out var list))
+                    return false;
 
-            var task = list.Find(t => string.Equals(t.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
-            if (task == null)
-                return false;
+                var task = list.FirstOrDefault(t =>
+                    string.Equals(t.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
 
-            task.Prioritet = newPriority;
-            return true;
+                if (task == null)
+                    return false;
+
+                task.Prioritet = newPriority;
+                SaveToDisk();
+                return true;
+            }
         }
-
 
         public List<(string ManagerUsername, ZadatakProjekta Task)> GetTasksForEmployeeWithManager(string employeeUsername)
         {
             if (string.IsNullOrWhiteSpace(employeeUsername))
-                return new List<(string, ZadatakProjekta)>();
+                return new();
 
             lock (_lock)
             {
                 return _taskByManager
                     .SelectMany(kvp => kvp.Value
                         .Where(t => string.Equals(t.Zaposleni, employeeUsername, StringComparison.OrdinalIgnoreCase))
-                        .Select(t => (ManagerUsername: kvp.Key, Task: t)))
-                    .OrderBy(x => StatusRank(x.Task.Status))
-                    .ThenBy(x => x.Task.Prioritet)
-                    .ThenBy(x => x.Task.Rok)
-                    .ThenBy(x => x.Task.Naziv, StringComparer.OrdinalIgnoreCase)
+                        .Select(t => (kvp.Key, t)))
+                    .OrderBy(x => StatusRank(x.t.Status))
+                    .ThenBy(x => x.t.Prioritet)
+                    .ThenBy(x => x.t.Rok)
+                    .ThenBy(x => x.t.Naziv, StringComparer.OrdinalIgnoreCase)
                     .ToList();
-            }
-        }
-
-        public bool TrySetStatus(string taskName, StatusZadatka newStatus, out StatusZadatka oldStatus)
-        {
-            oldStatus = default;
-
-            if (string.IsNullOrWhiteSpace(taskName))
-                return false;
-
-            lock (_lock)
-            {
-                foreach (var list in _taskByManager.Values)
-                {
-                    var t = list.FirstOrDefault(x =>
-                        string.Equals(x.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
-
-                    if (t == null) continue;
-
-                    oldStatus = t.Status;
-                    t.Status = newStatus;
-                    return true;
-                }
-
-                return false;
             }
         }
 
         public bool TrySetStatus(string taskName, StatusZadatka newStatus)
         {
-            return TrySetStatus(taskName, newStatus, out _);
-        }
-
-        public bool TryCompleteTask(string taskName, string? comment, out StatusZadatka oldStatus)
-        {
-            oldStatus = default;
-
             if (string.IsNullOrWhiteSpace(taskName))
                 return false;
 
@@ -143,128 +167,70 @@ namespace CollaborativeServer.Networking
 
                     if (t == null) continue;
 
-                    oldStatus = t.Status;
-                    t.Status = StatusZadatka.Zavrsen;
-                    t.Komentar = (comment ?? "").Trim();
+                    t.Status = newStatus;
+                    SaveToDisk();
                     return true;
                 }
-
                 return false;
             }
         }
 
         public bool TryCompleteTask(string taskName, string? comment)
         {
-            return TryCompleteTask(taskName, comment, out _);
-        }
+            if (string.IsNullOrWhiteSpace(taskName))
+                return false;
 
-        public void DebugPrint()
-        {
             lock (_lock)
             {
-                Console.WriteLine("===== TASK STORE DICT STATE =====");
-
-                if (_taskByManager.Count == 0)
+                foreach (var list in _taskByManager.Values)
                 {
-                    Console.WriteLine("(prazno)");
-                    return;
+                    var t = list.FirstOrDefault(x =>
+                        string.Equals(x.Naziv, taskName, StringComparison.OrdinalIgnoreCase));
+
+                    if (t == null) continue;
+
+                    t.Status = StatusZadatka.Zavrsen;
+                    t.Komentar = (comment ?? "").Trim();
+
+                    SaveToDisk();
+                    return true;
                 }
-
-                foreach (var kvp in _taskByManager)
-                {
-                    Console.WriteLine($"MENADZER: {kvp.Key}");
-
-                    if (kvp.Value.Count == 0)
-                    {
-                        Console.WriteLine("  (nema zadataka)");
-                        continue;
-                    }
-
-                    foreach (var t in kvp.Value)
-                    {
-                        Console.WriteLine(
-                            $"  - {t.Naziv} | Zaposleni: {t.Zaposleni} | Status: {t.Status} | Prioritet: {t.Prioritet} | Rok: {t.Rok:yyyy-MM-dd} | Komentar: {t.Komentar}"
-                        );
-                    }
-                }
-
-                Console.WriteLine("============================");
+                return false;
             }
         }
 
         public List<ZadatakProjekta> GetAllTasksForManager(string managerUsername)
         {
             if (string.IsNullOrWhiteSpace(managerUsername))
-                return new List<ZadatakProjekta>();
+                return new();
 
             lock (_lock)
             {
                 if (!_taskByManager.TryGetValue(managerUsername, out var list))
-                    return new List<ZadatakProjekta>();
+                    return new();
 
-                var uToku = list
-                    .Where(t => t.Status == StatusZadatka.UToku)
-                    .OrderBy(t => t.Prioritet)
+                return list
+                    .OrderBy(t => StatusRank(t.Status))
+                    .ThenBy(t => t.Prioritet)
+                    .ThenBy(t => t.Rok)
                     .ToList();
-
-                var naCekanju = list
-                    .Where(t => t.Status == StatusZadatka.NaCekanju)
-                    .OrderBy(t => t.Prioritet)
-                    .ToList();
-
-                var zavrseni = list
-                    .Where(t => t.Status == StatusZadatka.Zavrsen)
-                    .ToList();
-
-                uToku.AddRange(naCekanju);
-                uToku.AddRange(zavrseni);
-                return uToku;
             }
         }
 
-        private static string SanitizeComment(string? comment)
+        public void DebugPrint()
         {
-            if (string.IsNullOrWhiteSpace(comment)) return "";
-
-            return comment
-                .Replace("|", " ")
-                .Replace(";", " ")
-                .Replace("\r", " ")
-                .Replace("\n", " ")
-                .Trim();
-        }
-
-        public string GetAllTasks(string managerUsername)
-        {
-            if (string.IsNullOrWhiteSpace(managerUsername))
-                return string.Empty;
-
             lock (_lock)
             {
-                if (!_taskByManager.TryGetValue(managerUsername, out var tasks))
-                    return string.Empty;
-
-                var uToku = tasks.Where(t => t.Status == StatusZadatka.UToku)
-                                 .OrderBy(t => t.Prioritet);
-
-                var naCekanju = tasks.Where(t => t.Status == StatusZadatka.NaCekanju)
-                                     .OrderBy(t => t.Prioritet);
-
-                var zavrseni = tasks.Where(t => t.Status == StatusZadatka.Zavrsen);
-
-                var sb = new StringBuilder();
-
-                foreach (var t in uToku.Concat(naCekanju).Concat(zavrseni))
+                Console.WriteLine("===== TASK STORE =====");
+                foreach (var kvp in _taskByManager)
                 {
-                    if (sb.Length > 0)
-                        sb.Append(";");
-
-                    string komentar = SanitizeComment(t.Komentar);
-
-                    sb.Append($"{t.Naziv}|{t.Zaposleni}|{t.Rok:yyyy-MM-dd}|{t.Prioritet}|{(int)t.Status}|{komentar}");
+                    Console.WriteLine($"MENADZER: {kvp.Key}");
+                    foreach (var t in kvp.Value)
+                    {
+                        Console.WriteLine(
+                            $" - {t.Naziv} | {t.Zaposleni} | {t.Status} | P:{t.Prioritet} | Rok:{t.Rok:yyyy-MM-dd}");
+                    }
                 }
-
-                return sb.ToString();
             }
         }
     }

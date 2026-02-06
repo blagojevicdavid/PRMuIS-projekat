@@ -21,7 +21,7 @@ namespace ManagerClient.Networking
             string req = ProtocolConstants.UdpAllTasksPrefix + managerUsername;
             socket.SendTo(Encoding.UTF8.GetBytes(req), remote);
 
-            var buffer = new byte[65507]; // buffer podesen na maksimalnu velicinu UDP payload-a
+            var buffer = new byte[65507]; 
             EndPoint from = new IPEndPoint(IPAddress.Any, 0);
 
             int received = socket.ReceiveFrom(buffer, ref from);
@@ -34,7 +34,7 @@ namespace ManagerClient.Networking
             if (string.IsNullOrWhiteSpace(payload))
                 return new List<ZadatakProjekta>();
 
-            //prebaceno na JSON
+            
             try
             {
                 var tasks = JsonSerializer.Deserialize<List<ZadatakProjekta>>(payload);
@@ -42,8 +42,7 @@ namespace ManagerClient.Networking
             }
             catch (JsonException)
             {
-                //ako server vrati nevalidan JSON
-                return new List<ZadatakProjekta>();
+                   return new List<ZadatakProjekta>();
             }
         }
 
@@ -57,7 +56,7 @@ namespace ManagerClient.Networking
             string safeName = Uri.EscapeDataString(taskName ?? "");
             string req = $"{ProtocolConstants.UdpChangePriorityPrefix}{managerUsername}:{safeName}:{newPriority}";
 
-            // retry 2 puta
+           
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 try
